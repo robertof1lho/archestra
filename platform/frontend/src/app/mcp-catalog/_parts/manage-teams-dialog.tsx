@@ -1,6 +1,6 @@
 "use client";
 
-import type { archestraApiTypes } from "@shared";
+import type { archestraApiTypes } from "@archestra/shared";
 import { format } from "date-fns";
 import { Building2, Trash, X } from "lucide-react";
 import { useEffect, useState } from "react";

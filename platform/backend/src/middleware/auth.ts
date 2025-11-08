@@ -1,4 +1,4 @@
-import type { Action, Resource } from "@shared";
+import type { Action, Resource } from "@archestra/shared";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { auth } from "@/auth";
 import config from "@/config";

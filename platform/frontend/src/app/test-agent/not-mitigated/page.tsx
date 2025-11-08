@@ -1,6 +1,6 @@
 "use client";
 
-import { ALLOWED_DEMO_INTERACTION_ID } from "@shared";
+import { ALLOWED_DEMO_INTERACTION_ID } from "@archestra/shared";
 import { Suspense } from "react";
 import { ErrorBoundary } from "@/app/_parts/error-boundary";
 import ChatBotDemo from "@/components/chatbot-demo";

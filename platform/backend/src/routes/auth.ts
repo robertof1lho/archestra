@@ -1,4 +1,4 @@
-import { DEFAULT_ADMIN_EMAIL } from "@shared";
+import { DEFAULT_ADMIN_EMAIL } from "@archestra/shared";
 import { verifyPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";

@@ -1,4 +1,4 @@
-import type { Permission, Role } from "@shared";
+import type { Permission, Role } from "@archestra/shared";
 import { useRole } from "@/lib/auth.hook";
 import { useHasPermissions } from "@/lib/auth.query";
 

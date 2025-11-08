@@ -2,7 +2,7 @@ import {
   archestraApiClient,
   archestraApiSdk,
   type archestraApiTypes,
-} from "@shared";
+} from "@archestra/shared";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
 const { getTools } = archestraApiSdk;

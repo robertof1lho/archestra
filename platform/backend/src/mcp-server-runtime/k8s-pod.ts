@@ -2,7 +2,7 @@ import type { IncomingMessage } from "node:http";
 import { Readable, Writable } from "node:stream";
 import type * as k8s from "@kubernetes/client-node";
 import type { Attach } from "@kubernetes/client-node";
-import type { LocalConfigSchema } from "@shared";
+import type { LocalConfigSchema } from "@archestra/shared";
 import type { z } from "zod";
 import config from "@/config";
 import logger from "@/logging";

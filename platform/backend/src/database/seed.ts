@@ -4,7 +4,7 @@ import {
   BLOCKED_DEMO_AGENT_ID,
   BLOCKED_DEMO_INTERACTION_ID,
   DEMO_AGENT_ID,
-} from "@shared";
+} from "@archestra/shared";
 import { eq } from "drizzle-orm";
 import logger from "@/logging";
 import AgentModel from "@/models/agent";

@@ -12,7 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@shared": "workspace:*"
+    "@archestra/shared": "workspace:*"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

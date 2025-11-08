@@ -1,4 +1,4 @@
-import { ac, adminRole, memberRole } from "@shared";
+import { ac, adminRole, memberRole } from "@archestra/shared";
 import {
   adminClient,
   apiKeyClient,

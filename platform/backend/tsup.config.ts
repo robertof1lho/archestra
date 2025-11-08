@@ -26,8 +26,8 @@ export default defineConfig((options: Options) => ({
     "src/standalone-scripts/**/*",
   ],
   
-  // Don't bundle dependencies - use them from node_modules, except for @shared
-  noExternal: ["@shared"],
+  // Don't bundle dependencies - use them from node_modules, except for @archestra/shared
+  noExternal: ["@archestra/shared"],
   
   ...options,
 }));

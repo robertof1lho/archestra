@@ -1,4 +1,4 @@
-import type { archestraApiTypes } from "@shared";
+import type { archestraApiTypes } from "@archestra/shared";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {

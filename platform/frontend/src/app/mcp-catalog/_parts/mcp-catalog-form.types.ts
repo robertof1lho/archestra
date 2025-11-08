@@ -1,4 +1,4 @@
-import { LocalConfigFormSchema, type LocalConfigSchema } from "@shared";
+import { LocalConfigFormSchema, type LocalConfigSchema } from "@archestra/shared";
 import { z } from "zod";
 
 // Simplified OAuth config schema

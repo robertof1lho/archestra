@@ -1,6 +1,6 @@
 "use client";
 
-import type { archestraApiTypes } from "@shared";
+import type { archestraApiTypes } from "@archestra/shared";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { CodeText } from "@/components/code-text";
 import { LoadingSpinner } from "@/components/loading";

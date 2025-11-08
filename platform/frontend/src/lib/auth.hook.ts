@@ -1,4 +1,4 @@
-import type { Action, Permission, Resource, Role } from "@shared";
+import type { Action, Permission, Resource, Role } from "@archestra/shared";
 import { authClient } from "./clients/auth/auth-client";
 
 export function useIsAuthenticated() {

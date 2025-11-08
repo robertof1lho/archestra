@@ -1,7 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import path from 'path';
 import { UI_BASE_URL } from './consts';
-import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD } from '@shared';
+import { DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD } from '@archestra/shared';
 
 const authFile = path.join(__dirname, 'playwright/.auth/user.json');
 

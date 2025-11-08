@@ -1,4 +1,4 @@
-import { DEFAULT_AGENT_NAME } from "@shared";
+import { DEFAULT_AGENT_NAME } from "@archestra/shared";
 import { eq, inArray } from "drizzle-orm";
 import db, { schema } from "@/database";
 import type { Agent, InsertAgent, UpdateAgent } from "@/types";

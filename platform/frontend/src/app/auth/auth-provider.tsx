@@ -1,7 +1,7 @@
 "use client";
 
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
-import { EMAIL_PLACEHOLDER, PASSWORD_PLACEHOLDER } from "@shared";
+import { EMAIL_PLACEHOLDER, PASSWORD_PLACEHOLDER } from "@archestra/shared";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";

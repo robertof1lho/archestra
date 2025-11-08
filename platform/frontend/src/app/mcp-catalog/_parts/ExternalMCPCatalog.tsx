@@ -4,7 +4,7 @@ import {
   type archestraApiTypes,
   type archestraCatalogTypes,
   GITHUB_MCP_SERVER_NAME,
-} from "@shared";
+} from "@archestra/shared";
 
 import { BookOpen, Github, Info, Loader2, Search } from "lucide-react";
 import { useMemo, useState } from "react";

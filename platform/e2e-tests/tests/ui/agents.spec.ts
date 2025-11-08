@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { E2eTestId } from '@shared';
+import { E2eTestId } from '@archestra/shared';
 import utils from '../../utils';
 
 test('can create and delete an agent', async ({ page }) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { archestraApiSdk, type archestraApiTypes, E2eTestId } from "@shared";
+import { archestraApiSdk, type archestraApiTypes, E2eTestId } from "@archestra/shared";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil, Plug, Plus, Tag, Trash2, Wrench, X } from "lucide-react";
 import { Suspense, useCallback, useState } from "react";

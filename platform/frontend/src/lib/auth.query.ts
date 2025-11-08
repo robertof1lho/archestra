@@ -3,7 +3,7 @@ import {
   archestraApiSdk,
   type Permission,
   type Resource,
-} from "@shared";
+} from "@archestra/shared";
 import { useQuery } from "@tanstack/react-query";
 import { authClient } from "@/lib/clients/auth/auth-client";
 

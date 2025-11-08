@@ -1,4 +1,4 @@
-import { ac, adminRole, allAvailableActions, memberRole } from "@shared";
+import { ac, adminRole, allAvailableActions, memberRole } from "@archestra/shared";
 import { APIError, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware } from "better-auth/api";

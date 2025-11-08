@@ -5,7 +5,7 @@ import {
   SignedOut,
   UserButton,
 } from "@daveyplate/better-auth-ui";
-import type { Role } from "@shared";
+import type { Role } from "@archestra/shared";
 import {
   BookOpen,
   Bot,

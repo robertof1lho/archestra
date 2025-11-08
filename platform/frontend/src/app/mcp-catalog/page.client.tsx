@@ -1,6 +1,6 @@
 "use client";
 
-import type { archestraApiTypes } from "@shared";
+import type { archestraApiTypes } from "@archestra/shared";
 import Divider from "@/components/divider";
 import { ExternalMCPCatalog } from "./_parts/ExternalMCPCatalog";
 import { InternalMCPCatalog } from "./_parts/InternalMCPCatalog";

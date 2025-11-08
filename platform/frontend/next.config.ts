@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  transpilePackages: ["@shared"],
+  transpilePackages: ["@archestra/shared"],
   devIndicators: {
     position: "bottom-right",
   },

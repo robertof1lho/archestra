@@ -1,5 +1,5 @@
-import type { ErrorExtended } from "@shared";
-import { archestraApiSdk, type archestraApiTypes } from "@shared";
+import type { ErrorExtended } from "@archestra/shared";
+import { archestraApiSdk, type archestraApiTypes } from "@archestra/shared";
 import { ServerErrorFallback } from "@/components/error-fallback";
 import { getServerApiHeaders } from "@/lib/server-utils";
 import AgentsPage from "./page.client";
