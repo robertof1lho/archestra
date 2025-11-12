@@ -291,6 +291,10 @@ const routePermissionsConfig: Partial<
   [RouteId.DeleteInternalMcpCatalogItem]: {
     internalMcpCatalog: ["delete"],
   },
+  [RouteId.GenerateApi2McpServer]: {
+    internalMcpCatalog: ["create"],
+    mcpServer: ["create"],
+  },
   [RouteId.GetMcpServers]: {
     mcpServer: ["read"],
   },
@@ -319,6 +323,9 @@ const routePermissionsConfig: Partial<
     mcpServer: ["delete"],
   },
   [RouteId.GetMcpServerInstallationStatus]: {
+    mcpServer: ["read"],
+  },
+  [RouteId.GetLocalMcpRuntimeStatus]: {
     mcpServer: ["read"],
   },
   [RouteId.GetMcpServerInstallationRequests]: {

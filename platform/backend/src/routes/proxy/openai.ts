@@ -5,7 +5,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import OpenAIProvider from "openai";
 import { z } from "zod";
 import config from "@/config";
-import { AgentModel, InteractionModel } from "@/models";
+import { AgentModel, InteractionModel, ToolModel } from "@/models";
 import { getObservableFetch, reportLLMTokens } from "@/models/llm-metrics";
 import {
   type Agent,
@@ -33,7 +33,7 @@ export const injectTools = async (
     assignedTools.map((tool) => ({
       type: "function" as const,
       function: {
-        name: tool.name,
+        name: ToolModel.unslugifyName(tool.name),
         description: tool.description || undefined,
         parameters: tool.parameters,
       },

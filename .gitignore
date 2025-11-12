@@ -9,3 +9,9 @@
 *.njsproj
 *.sln
 *.sw?
+
+# Python virtual environments
+*.venv
+*__init__.py
+*__pycache__/
+api2mcp_servers/

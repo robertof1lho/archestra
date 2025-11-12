@@ -257,7 +257,7 @@ export function UnassignedToolsList({
               onAssignClick(row.original);
             }}
           >
-            Assign Agents
+            Assign MCP Gateways
           </Button>
         ),
         size: 150,

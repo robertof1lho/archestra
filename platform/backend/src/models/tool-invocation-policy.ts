@@ -1,4 +1,4 @@
-import { and, desc, eq, getTableColumns } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, or, sql } from "drizzle-orm";
 import { get } from "lodash-es";
 import db, { schema } from "@/database";
 import type { ToolInvocation } from "@/types";
@@ -92,7 +92,10 @@ class ToolInvocationPolicyModel {
         // Filter to policies that match the agent and tool
         and(
           eq(schema.agentToolsTable.agentId, agentId),
-          eq(schema.toolsTable.name, toolName),
+          or(
+            eq(schema.toolsTable.name, toolName),
+            sql`split_part(${schema.toolsTable.name}, '__', 2) = ${toolName}`,
+          ),
         ),
       );
 

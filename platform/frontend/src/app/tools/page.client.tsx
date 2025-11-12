@@ -72,8 +72,8 @@ function ToolsList({ initialData }: { initialData?: AgentToolData[] }) {
         <div className="max-w-7xl mx-auto px-8 py-8">
           <h1 className="text-2xl font-semibold tracking-tight mb-2">Tools</h1>
           <p className="text-sm text-muted-foreground">
-            Tools displayed here are either detected from requests between
-            agents and LLMs or sourced from installed MCP servers.
+            Tools displayed here are either detected from requests between MCP
+            gateways and LLMs or sourced from installed MCP servers.
           </p>
         </div>
       </div>
@@ -90,8 +90,8 @@ function ToolsList({ initialData }: { initialData?: AgentToolData[] }) {
           }}
         >
           <TabsList className="mb-4">
-            <TabsTrigger value="with_agents">Agents Assigned</TabsTrigger>
-            <TabsTrigger value="without_agents">Without Agents</TabsTrigger>
+            <TabsTrigger value="with_agents">Gateways Assigned</TabsTrigger>
+            <TabsTrigger value="without_agents">Without Gateways</TabsTrigger>
           </TabsList>
 
           <TabsContent value="with_agents" className="mt-0">

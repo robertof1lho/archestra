@@ -18,7 +18,7 @@ const mainFont = Lato({
 });
 
 export const metadata: Metadata = {
-  title: "Archestra.AI",
+  title: "MCP Gateaway",
   description: "Enterprise MCP Platform for AI Agents",
 };
 

@@ -298,7 +298,12 @@ class ToolModel {
         ),
       );
 
-    return mcpTools.map((tool) => tool.name);
+    const names = new Set<string>();
+    for (const tool of mcpTools) {
+      names.add(tool.name);
+      names.add(ToolModel.unslugifyName(tool.name));
+    }
+    return Array.from(names);
   }
 
   /**
@@ -310,6 +315,7 @@ class ToolModel {
   ): Promise<
     Array<{
       toolName: string;
+      nativeToolName: string;
       responseModifierTemplate: string | null;
       mcpServerSecretId: string | null;
       mcpServerName: string;
@@ -346,12 +352,22 @@ class ToolModel {
       .where(
         and(
           eq(schema.agentToolsTable.agentId, agentId),
-          inArray(schema.toolsTable.name, toolNames),
           isNotNull(schema.toolsTable.mcpServerId), // Only MCP tools
         ),
       );
 
-    return mcpTools;
+    const requestedNames = new Set(toolNames);
+    return mcpTools
+      .filter((tool) => {
+        const nativeName = ToolModel.unslugifyName(tool.toolName);
+        return (
+          requestedNames.has(tool.toolName) || requestedNames.has(nativeName)
+        );
+      })
+      .map((tool) => ({
+        ...tool,
+        nativeToolName: ToolModel.unslugifyName(tool.toolName),
+      }));
   }
 
   /**

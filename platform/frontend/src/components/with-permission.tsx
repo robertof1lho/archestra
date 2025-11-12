@@ -1,41 +1,13 @@
-import type { Permission, Role } from "@archestra/shared";
+import type { Role } from "@archestra/shared";
+import type { ReactNode } from "react";
 import { useRole } from "@/lib/auth.hook";
-import { useHasPermissions } from "@/lib/auth.query";
-
-export function WithPermission({
-  children,
-  permissions,
-}: {
-  children: React.ReactNode;
-  permissions: Permission[];
-}) {
-  const hasPermissions = useHasPermissions(permissions);
-  if (!hasPermissions.data) {
-    return null;
-  }
-  return children;
-}
-
-export function WithPermissions({
-  children,
-  permissions,
-}: {
-  children: React.ReactNode;
-  permissions: Permission[];
-}) {
-  const hasPermissions = useHasPermissions(permissions);
-  if (!hasPermissions) {
-    return null;
-  }
-  return children;
-}
 
 export function WithRole({
   children,
   requiredMinimalRole,
   requiredExactRole,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   requiredMinimalRole?: Role;
   requiredExactRole?: Role;
 }) {

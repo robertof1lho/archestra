@@ -337,6 +337,7 @@ describe("ToolModel", () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toEqual({
         toolName: "github_mcp_server__list_issues",
+        nativeToolName: "list_issues",
         mcpServerName: "test-github-server",
         mcpServerSecretId: null,
         mcpServerCatalogId: catalogItem.id,
@@ -392,6 +393,46 @@ describe("ToolModel", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].toolName).toBe("tool_one");
+      expect(result[0].nativeToolName).toBe("tool_one");
+    });
+
+    test("matches tools when requesting by source name", async () => {
+      const _userId = await createTestUser();
+      const agent = await AgentModel.create({
+        name: "Test Agent",
+        teams: [],
+      });
+
+      const catalogItem = await InternalMcpCatalogModel.create({
+        name: "github-mcp-server",
+        serverType: "remote",
+        serverUrl: "https://api.githubcopilot.com/mcp/",
+      });
+      const mcpServer = await McpServerModel.create({
+        name: "test-github-server",
+        catalogId: catalogItem.id,
+      });
+
+      const slugName = "github_mcp_server__get_inventory";
+      const sourceName = "get_inventory";
+
+      const mcpTool = await ToolModel.create({
+        name: slugName,
+        description: "Inventory tool",
+        parameters: {},
+        mcpServerId: mcpServer.id,
+      });
+
+      await AgentToolModel.create(agent.id, mcpTool.id);
+
+      const result = await ToolModel.getMcpToolsAssignedToAgent(
+        [sourceName],
+        agent.id,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].toolName).toBe(slugName);
+      expect(result[0].nativeToolName).toBe(sourceName);
     });
 
     test("returns empty array when tools exist but not assigned to agent", async () => {

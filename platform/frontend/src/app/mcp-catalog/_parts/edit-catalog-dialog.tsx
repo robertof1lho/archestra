@@ -32,7 +32,7 @@ export function EditCatalogDialog({
   onReinstallRequired,
 }: EditCatalogDialogProps) {
   const updateMutation = useUpdateInternalMcpCatalogItem();
-  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const submitHandlerRef = useRef<(() => void) | null>(null);
 
   const handleClose = () => {
     onClose();
@@ -99,7 +99,7 @@ export function EditCatalogDialog({
             mode="edit"
             initialValues={item}
             onSubmit={onSubmit}
-            submitButtonRef={submitButtonRef}
+            submitHandlerRef={submitHandlerRef}
           />
         )}
 
@@ -108,7 +108,7 @@ export function EditCatalogDialog({
             Cancel
           </Button>
           <Button
-            onClick={() => submitButtonRef.current?.click()}
+            onClick={() => submitHandlerRef.current?.()}
             disabled={updateMutation.isPending}
           >
             {updateMutation.isPending ? "Saving..." : "Save Changes"}

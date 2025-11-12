@@ -4,7 +4,7 @@ import { trace } from "@opentelemetry/api";
 import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
-import { AgentModel, InteractionModel } from "@/models";
+import { AgentModel, InteractionModel, ToolModel } from "@/models";
 import { getObservableGenAI } from "@/models/llm-metrics";
 import { type Agent, ErrorResponseSchema, Gemini, UuidIdSchema } from "@/types";
 import { PROXY_API_PREFIX } from "./common";
@@ -24,7 +24,7 @@ const _injectTools = async (
   const assignedGeminiFunctions: z.infer<
     typeof Gemini.Tools.FunctionDeclarationSchema
   >[] = assignedTools.map((tool) => ({
-    name: tool.name,
+    name: ToolModel.unslugifyName(tool.name),
     description: tool.description || "",
     parameters: tool.parameters,
   }));

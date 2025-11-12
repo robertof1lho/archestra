@@ -18,6 +18,19 @@ import {
   UuidIdSchema,
 } from "@/types";
 import { getUserFromRequest } from "@/utils";
+import { localMcpProcessManager } from "@/services/local-mcp-process-manager";
+
+const LocalRuntimeStatusSchema = z.object({
+  serverId: UuidIdSchema,
+  status: z.enum(["starting", "running", "stopped", "error"]),
+  port: z.number(),
+  statusPort: z.number().optional(),
+  pid: z.number().optional(),
+  startedAt: z.string().optional(),
+  exitedAt: z.string().optional(),
+  logs: z.array(z.string()),
+  error: z.string().optional(),
+});
 
 const mcpServerRoutes: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
@@ -383,6 +396,75 @@ const mcpServerRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
           throw toolError;
         }
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: {
+            message:
+              error instanceof Error ? error.message : "Internal server error",
+            type: "api_error",
+          },
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/api/mcp_server/:id/runtime_status",
+    {
+      schema: {
+        operationId: RouteId.GetLocalMcpRuntimeStatus,
+        description: "Get runtime status for a locally managed MCP server",
+        tags: ["MCP Server"],
+        params: z.object({
+          id: UuidIdSchema,
+        }),
+        response: {
+          200: LocalRuntimeStatusSchema,
+          401: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const user = await getUserFromRequest(request);
+        if (!user) {
+          return reply.status(401).send({
+            error: {
+              message: "Unauthorized",
+              type: "unauthorized",
+            },
+          });
+        }
+
+        const server = await McpServerModel.findById(
+          request.params.id,
+          user.id,
+          user.isAdmin,
+        );
+
+        if (!server) {
+          return reply.status(404).send({
+            error: {
+              message: "MCP server not found",
+              type: "not_found",
+            },
+          });
+        }
+
+        const summary = localMcpProcessManager.getSummary(server.id);
+        if (!summary) {
+          return reply.status(404).send({
+            error: {
+              message: "Runtime status not available for this server",
+              type: "not_found",
+            },
+          });
+        }
+
+        return reply.send(summary);
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({

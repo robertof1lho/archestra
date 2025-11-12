@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, inArray } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, or, sql } from "drizzle-orm";
 import db, { schema } from "@/database";
 import type { AgentTool, InsertAgentTool, UpdateAgentTool } from "@/types";
 import AgentTeamModel from "./agent-team";
@@ -206,7 +206,10 @@ class AgentToolModel {
       .where(
         and(
           eq(schema.agentToolsTable.agentId, agentId),
-          eq(schema.toolsTable.name, toolName),
+          or(
+            eq(schema.toolsTable.name, toolName),
+            sql`split_part(${schema.toolsTable.name}, '__', 2) = ${toolName}`,
+          ),
         ),
       );
 

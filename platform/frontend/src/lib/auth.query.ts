@@ -1,57 +1,5 @@
-import {
-  type Action,
-  archestraApiSdk,
-  type Permission,
-  type Resource,
-} from "@archestra/shared";
+import { archestraApiSdk } from "@archestra/shared";
 import { useQuery } from "@tanstack/react-query";
-import { authClient } from "@/lib/clients/auth/auth-client";
-
-/**
- * Fetch current session
- */
-export function useSession() {
-  return useQuery({
-    queryKey: ["auth", "session"],
-    queryFn: async () => {
-      const { data } = await authClient.getSession();
-      return data;
-    },
-  });
-}
-
-export function useCurrentOrgMembers() {
-  return useQuery({
-    queryKey: ["auth", "orgMembers"],
-    queryFn: async () => {
-      const { data } = await authClient.organization.listMembers();
-      return data?.members ?? [];
-    },
-  });
-}
-
-export function useHasPermissions(permissionsToCheck: Permission[]) {
-  return useQuery({
-    queryKey: ["auth", "hasPermission", ...permissionsToCheck],
-    queryFn: async () => {
-      const permissionsMap = permissionsToCheck.reduce(
-        (acc, permission) => {
-          const [resource, action] = permission.split(":") as [
-            Resource,
-            Action,
-          ];
-          acc[resource] = [action];
-          return acc;
-        },
-        {} as Record<Resource, Action[]>,
-      );
-      const { data } = await authClient.organization.hasPermission({
-        permissions: permissionsMap,
-      });
-      return data?.success ?? false;
-    },
-  });
-}
 
 export function useDefaultCredentialsEnabled() {
   return useQuery({

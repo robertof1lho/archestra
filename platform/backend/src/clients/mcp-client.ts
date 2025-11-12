@@ -91,7 +91,9 @@ class McpClient {
 
     // Filter tool calls to only those that are MCP tools
     const mcpToolCalls = toolCalls.filter((tc) =>
-      mcpTools.some((mt) => mt.toolName === tc.name),
+      mcpTools.some(
+        (mt) => mt.toolName === tc.name || mt.nativeToolName === tc.name,
+      ),
     );
 
     if (mcpToolCalls.length === 0) {
@@ -103,6 +105,10 @@ class McpClient {
     for (const tool of mcpTools) {
       if (tool.responseModifierTemplate) {
         templatesByToolName.set(tool.toolName, tool.responseModifierTemplate);
+        templatesByToolName.set(
+          tool.nativeToolName,
+          tool.responseModifierTemplate,
+        );
       }
     }
 
@@ -196,9 +202,9 @@ class McpClient {
           for (const toolCall of mcpToolCalls) {
             try {
               // Strip the server prefix from tool name for MCP server call
-              const serverPrefix = `${firstTool.mcpServerName}__`;
-              const mcpToolName = toolCall.name.startsWith(serverPrefix)
-                ? toolCall.name.substring(serverPrefix.length)
+              const slugPrefix = `${firstTool.toolName.split("__")[0]}__`;
+              const mcpToolName = toolCall.name.startsWith(slugPrefix)
+                ? toolCall.name.substring(slugPrefix.length)
                 : toolCall.name;
 
               const result = await client.callTool({
@@ -303,9 +309,9 @@ class McpClient {
         for (const toolCall of mcpToolCalls) {
           try {
             // Strip the server prefix from tool name for MCP server call
-            const serverPrefix = `${firstTool.mcpServerName}__`;
-            const mcpToolName = toolCall.name.startsWith(serverPrefix)
-              ? toolCall.name.substring(serverPrefix.length)
+            const slugPrefix = `${firstTool.toolName.split("__")[0]}__`;
+            const mcpToolName = toolCall.name.startsWith(slugPrefix)
+              ? toolCall.name.substring(slugPrefix.length)
               : toolCall.name;
 
             const response = await fetch(proxyUrl, {
@@ -482,9 +488,9 @@ class McpClient {
           // Strip the server prefix from tool name for MCP server call
           // Tool name format: <server-name>__<native-tool-name>
           // Example: githubcopilot__remote-mcp__search_issues -> search_issues
-          const serverPrefix = `${firstTool.mcpServerName}__`;
-          const mcpToolName = toolCall.name.startsWith(serverPrefix)
-            ? toolCall.name.substring(serverPrefix.length)
+          const slugPrefix = `${firstTool.toolName.split("__")[0]}__`;
+          const mcpToolName = toolCall.name.startsWith(slugPrefix)
+            ? toolCall.name.substring(slugPrefix.length)
             : toolCall.name;
 
           const result = await client.callTool({

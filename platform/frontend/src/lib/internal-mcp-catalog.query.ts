@@ -32,7 +32,12 @@ export function useCreateInternalMcpCatalogItem() {
       const response = await createInternalMcpCatalogItem({ body: data });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (newItem) => {
+      queryClient.setQueryData<
+        archestraApiTypes.GetInternalMcpCatalogResponses["200"]
+      >(["mcp-catalog"], (prev) =>
+        newItem ? [...(prev ?? []), newItem] : prev ?? [],
+      );
       queryClient.invalidateQueries({ queryKey: ["mcp-catalog"] });
       toast.success("Catalog item created successfully");
     },
@@ -86,6 +91,73 @@ export function useDeleteInternalMcpCatalogItem() {
     onError: (error) => {
       console.error("Delete error:", error);
       toast.error("Failed to delete catalog item");
+    },
+  });
+}
+
+type GenerateApi2McpResponse = {
+  catalogItem: archestraApiTypes.GetInternalMcpCatalogResponses["200"][number];
+  server: archestraApiTypes.GetMcpServersResponses["200"][number];
+  runtime: {
+    port: number;
+    statusPort?: number;
+    status: string;
+    logs: string[];
+  };
+};
+
+export function useGenerateApi2McpServer() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      data: {
+        name: string;
+        description?: string;
+        mode?: "spec" | "reference";
+        input:
+          | { type: "text" | "file"; content: string; filename?: string }
+          | { type: "url"; url: string };
+        baseUrl?: string;
+        bearerToken?: string;
+        preferScheme?: "https" | "http" | "ws" | "wss";
+        methods?: string[];
+        requestedPort?: number;
+      },
+    ) => {
+      const response = await fetch("/api/internal_mcp_catalog/api2mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        const message =
+          (errorBody &&
+            typeof errorBody === "object" &&
+            "error" in errorBody &&
+            typeof errorBody.error === "object" &&
+            errorBody.error &&
+            "message" in errorBody.error &&
+            typeof errorBody.error.message === "string" &&
+            errorBody.error.message) ||
+          "Failed to generate MCP server";
+        throw new Error(message);
+      }
+      return (await response.json()) as GenerateApi2McpResponse;
+    },
+    onSuccess: async (result) => {
+      toast.success(
+        `Generated ${result.catalogItem.name} on port ${result.runtime.port}`,
+      );
+      await queryClient.refetchQueries({ queryKey: ["mcp-catalog"] });
+      await queryClient.refetchQueries({ queryKey: ["mcp-servers"] });
+    },
+    onError: (error) => {
+      console.error("api2mcp generation error:", error);
+      toast.error(error instanceof Error ? error.message : "Generation failed");
     },
   });
 }

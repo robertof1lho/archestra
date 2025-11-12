@@ -127,6 +127,43 @@ describe("McpClient", () => {
       expect(result).toEqual([]);
     });
 
+    test("executes MCP tool when call name matches source name", async () => {
+      const slugName = "github-mcp-server__get_inventory";
+      const sourceName = "get_inventory";
+
+      const tool = await ToolModel.createToolIfNotExists({
+        agentId,
+        name: slugName,
+        description: "Inventory tool",
+        parameters: {},
+        mcpServerId,
+      });
+
+      await AgentToolModel.create(agentId, tool.id);
+
+      mockCallTool.mockResolvedValueOnce({
+        content: [{ type: "text", text: "inventory ok" }],
+        isError: false,
+      });
+
+      const toolCalls = [
+        {
+          id: "call_source",
+          name: sourceName,
+          arguments: {},
+        },
+      ];
+
+      const result = await mcpClient.executeToolCalls(toolCalls, agentId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].isError).toBe(false);
+      expect(mockCallTool).toHaveBeenCalledWith({
+        name: sourceName,
+        arguments: {},
+      });
+    });
+
     describe("Response Modifier Templates", () => {
       test("applies simple text template to tool response", async () => {
         // Create MCP tool with response modifier template

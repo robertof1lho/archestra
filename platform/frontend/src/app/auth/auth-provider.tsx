@@ -18,9 +18,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.refresh();
       }}
       Link={Link}
-      organization={{
-        logo: true,
-      }}
       localization={{
         EMAIL_PLACEHOLDER,
         PASSWORD_PLACEHOLDER,

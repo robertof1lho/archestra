@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { archestraApiTypes } from "@archestra/shared";
 import { AlertCircle, Info } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, type MutableRefObject } from "react";
 import { useForm } from "react-hook-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,7 +35,7 @@ interface McpCatalogFormProps {
   mode: "create" | "edit";
   initialValues?: archestraApiTypes.GetInternalMcpCatalogResponses["200"][number];
   onSubmit: (values: McpCatalogFormValues) => void;
-  submitButtonRef?: React.RefObject<HTMLButtonElement | null>;
+  submitHandlerRef?: MutableRefObject<(() => void) | null>;
   serverType?: "remote" | "local";
 }
 
@@ -43,7 +43,7 @@ export function McpCatalogForm({
   mode,
   initialValues,
   onSubmit,
-  submitButtonRef,
+  submitHandlerRef,
   serverType = "remote",
 }: McpCatalogFormProps) {
   const form = useForm<McpCatalogFormValues>({
@@ -86,6 +86,19 @@ export function McpCatalogForm({
       form.reset(transformCatalogItemToFormValues(initialValues));
     }
   }, [initialValues, form]);
+
+  useEffect(() => {
+    if (!submitHandlerRef) {
+      return;
+    }
+    const handler = form.handleSubmit(onSubmit);
+    submitHandlerRef.current = handler;
+    return () => {
+      if (submitHandlerRef.current === handler) {
+        submitHandlerRef.current = null;
+      }
+    };
+  }, [form, onSubmit, submitHandlerRef]);
 
   return (
     <Form {...form}>
@@ -524,13 +537,8 @@ export function McpCatalogForm({
           </div>
         )}
 
-        {/* Hidden submit button that can be triggered externally */}
-        <button
-          ref={submitButtonRef}
-          type="submit"
-          className="hidden"
-          tabIndex={-1}
-        />
+        {/* Hidden submit button that allows Enter key submission */}
+        <button type="submit" className="hidden" tabIndex={-1} />
       </form>
     </Form>
   );

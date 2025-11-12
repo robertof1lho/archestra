@@ -7,7 +7,6 @@ import { OAuthConfirmationDialog } from "@/components/oauth-confirmation-dialog"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRole } from "@/lib/auth.hook";
-import { authClient } from "@/lib/clients/auth/auth-client";
 import { useInternalMcpCatalog } from "@/lib/internal-mcp-catalog.query";
 import {
   useDeleteMcpServer,
@@ -19,6 +18,7 @@ import { CreateCatalogDialog } from "./create-catalog-dialog";
 import { CustomServerRequestDialog } from "./custom-server-request-dialog";
 import { DeleteCatalogDialog } from "./delete-catalog-dialog";
 import { EditCatalogDialog } from "./edit-catalog-dialog";
+import { LocalServerQuickConnectCard } from "./local-server-quick-connect-card";
 import {
   type CatalogItem,
   type InstalledServer,
@@ -43,8 +43,6 @@ export function InternalMCPCatalog({
   const userRole = useRole();
   const isAdmin = userRole === "admin";
   const deleteMutation = useDeleteMcpServer();
-  const session = authClient.useSession();
-  const currentUserId = session.data?.user?.id;
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCustomRequestDialogOpen, setIsCustomRequestDialogOpen] =
@@ -61,7 +59,6 @@ export function InternalMCPCatalog({
   const [showReinstallDialog, setShowReinstallDialog] = useState(false);
   const [catalogItemForReinstall, setCatalogItemForReinstall] =
     useState<CatalogItem | null>(null);
-  const [isTeamMode, setIsTeamMode] = useState(false);
   const [isNoAuthDialogOpen, setIsNoAuthDialogOpen] = useState(false);
   const [noAuthCatalogItem, setNoAuthCatalogItem] =
     useState<CatalogItem | null>(null);
@@ -86,8 +83,7 @@ export function InternalMCPCatalog({
     }
   }, [mcpServerInstallationStatus.data, installingServerIds]);
 
-  const handleInstall = async (catalogItem: CatalogItem, teamMode = false) => {
-    setIsTeamMode(teamMode);
+  const handleInstall = async (catalogItem: CatalogItem) => {
 
     // Check if this is a remote server with user configuration or it's the GitHub MCP server from the external catalog
     if (
@@ -112,13 +108,8 @@ export function InternalMCPCatalog({
     await installMutation.mutateAsync({
       name: catalogItem.name,
       catalogId: catalogItem.id,
-      teams: [],
     });
     setInstallingItemId(null);
-  };
-
-  const handleInstallTeam = async (catalogItem: CatalogItem) => {
-    await handleInstall(catalogItem, true);
   };
 
   const handleInstallNoAuth = async (catalogItem: CatalogItem) => {
@@ -129,7 +120,6 @@ export function InternalMCPCatalog({
         const installedServer = await installMutation.mutateAsync({
           name: catalogItem.name,
           catalogId: catalogItem.id,
-          teams: [],
           dontShowToast: true,
         });
         // Track the installed server for polling
@@ -144,19 +134,18 @@ export function InternalMCPCatalog({
       return;
     }
 
-    // Remote servers without auth show dialog for team selection
+    // Remote servers without auth show dialog before installation
     setNoAuthCatalogItem(catalogItem);
     setIsNoAuthDialogOpen(true);
   };
 
-  const handleNoAuthConfirm = async (teams: string[] = []) => {
+  const handleNoAuthConfirm = async () => {
     if (!noAuthCatalogItem) return;
 
     setInstallingItemId(noAuthCatalogItem.id);
     await installMutation.mutateAsync({
       name: noAuthCatalogItem.name,
       catalogId: noAuthCatalogItem.id,
-      teams,
     });
     setIsNoAuthDialogOpen(false);
     setNoAuthCatalogItem(null);
@@ -166,7 +155,6 @@ export function InternalMCPCatalog({
   const handleRemoteServerInstall = async (
     catalogItem: CatalogItem,
     metadata?: Record<string, unknown>,
-    teams: string[] = [],
   ) => {
     setInstallingItemId(catalogItem.id);
 
@@ -180,12 +168,11 @@ export function InternalMCPCatalog({
       name: catalogItem.name,
       catalogId: catalogItem.id,
       ...(accessToken && { accessToken }),
-      teams,
     });
     setInstallingItemId(null);
   };
 
-  const handleOAuthConfirm = async (teams: string[] = []) => {
+  const handleOAuthConfirm = async () => {
     if (!selectedCatalogItem) return;
 
     try {
@@ -206,10 +193,9 @@ export function InternalMCPCatalog({
 
       const { authorizationUrl, state } = await response.json();
 
-      // Store state and teams in session storage for the callback
+      // Store state in session storage for the callback
       sessionStorage.setItem("oauth_state", state);
       sessionStorage.setItem("oauth_catalog_id", selectedCatalogItem.id);
-      sessionStorage.setItem("oauth_teams", JSON.stringify(teams));
 
       // Redirect to OAuth provider
       window.location.href = authorizationUrl;
@@ -223,96 +209,8 @@ export function InternalMCPCatalog({
     const servers = installedServers?.filter(
       (server) => server.catalogId === catalogId,
     );
-
     if (!servers || servers.length === 0) return undefined;
-
-    // If only one server, return it as-is (but check for team auth ownership)
-    if (servers.length === 1) {
-      const server = servers[0];
-      return {
-        ...server,
-        currentUserHasTeamAuth:
-          server.authType === "team" && server.ownerId === currentUserId,
-      };
-    }
-
-    // Use the first server with users as the base, or just first server
-    const baseServer =
-      servers.find((s) => s.users && s.users.length > 0) || servers[0];
-
-    // Aggregate multiple servers
-    const aggregated = { ...baseServer };
-
-    // Check if current user has a team-auth server
-    const currentUserHasTeamAuth = servers.some(
-      (s) => s.authType === "team" && s.ownerId === currentUserId,
-    );
-
-    // Combine all unique users
-    const allUsers = new Set<string>();
-    const allUserDetails: Array<{
-      userId: string;
-      email: string;
-      createdAt: string;
-      serverId: string; // Track which server this user belongs to
-    }> = [];
-
-    for (const server of servers) {
-      if (server.users) {
-        for (const userId of server.users) {
-          allUsers.add(userId);
-        }
-      }
-      if (server.userDetails) {
-        for (const userDetail of server.userDetails) {
-          // Only add if not already present
-          if (!allUserDetails.some((ud) => ud.userId === userDetail.userId)) {
-            allUserDetails.push({
-              ...userDetail,
-              serverId: server.id, // Include the actual server ID
-            });
-          }
-        }
-      }
-    }
-
-    // Combine all unique teams
-    const allTeams = new Set<string>();
-    const allTeamDetails: Array<{
-      teamId: string;
-      name: string;
-      createdAt: string;
-      serverId: string; // Track which server this team belongs to
-    }> = [];
-
-    for (const server of servers) {
-      if (server.teams) {
-        for (const teamId of server.teams) {
-          allTeams.add(teamId);
-        }
-      }
-      if (server.teamDetails) {
-        for (const teamDetail of server.teamDetails) {
-          // Only add if not already present
-          if (!allTeamDetails.some((td) => td.teamId === teamDetail.teamId)) {
-            allTeamDetails.push({
-              ...teamDetail,
-              serverId: server.id, // Include the actual server ID
-            });
-          }
-        }
-      }
-    }
-
-    aggregated.users = Array.from(allUsers);
-    aggregated.userDetails = allUserDetails;
-    aggregated.teams = Array.from(allTeams);
-    aggregated.teamDetails = allTeamDetails;
-
-    return {
-      ...aggregated,
-      currentUserHasTeamAuth,
-    };
+    return servers[0];
   };
 
   const handleReinstallRequired = async (
@@ -419,7 +317,7 @@ export function InternalMCPCatalog({
         >
           <Plus className="mr-2 h-4 w-4" />
           {isAdmin
-            ? "Add MCP server using config"
+            ? "Add MCP Server"
             : "Request to add custom MCP Server"}
         </Button>
       </div>
@@ -433,6 +331,7 @@ export function InternalMCPCatalog({
             className="pl-9"
           />
         </div>
+        {isAdmin && <LocalServerQuickConnectCard />}
         {filteredCatalogItems.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
             {filteredCatalogItems.map((item) => {
@@ -441,19 +340,18 @@ export function InternalMCPCatalog({
                 installedServer && installingServerIds.has(installedServer.id);
 
               return (
-                <McpServerCard
-                  variant={item.serverType === "remote" ? "remote" : "local"}
-                  key={item.id}
-                  item={item}
-                  installedServer={installedServer}
+                  <McpServerCard
+                    variant={item.serverType === "remote" ? "remote" : "local"}
+                    key={item.id}
+                    item={item}
+                    installedServer={installedServer}
                   installingItemId={installingItemId}
                   installationStatus={
                     isInstallInProgress
                       ? mcpServerInstallationStatus.data
                       : undefined
                   }
-                  onInstall={() => handleInstall(item, false)}
-                  onInstallTeam={() => handleInstallTeam(item)}
+                    onInstall={() => handleInstall(item)}
                   onInstallNoAuth={() => handleInstallNoAuth(item)}
                   onReinstall={() => handleReinstall(item)}
                   onEdit={() => setEditingItem(item)}
@@ -507,12 +405,10 @@ export function InternalMCPCatalog({
         onClose={() => {
           setIsRemoteServerDialogOpen(false);
           setSelectedCatalogItem(null);
-          setIsTeamMode(false);
         }}
         onInstall={handleRemoteServerInstall}
         catalogItem={selectedCatalogItem}
         isInstalling={installMutation.isPending}
-        isTeamMode={isTeamMode}
       />
 
       <OAuthConfirmationDialog
@@ -523,11 +419,7 @@ export function InternalMCPCatalog({
         onCancel={() => {
           setIsOAuthDialogOpen(false);
           setSelectedCatalogItem(null);
-          setIsTeamMode(false);
         }}
-        isTeamMode={isTeamMode}
-        catalogId={selectedCatalogItem?.id}
-        installedServers={installedServers}
       />
 
       <ReinstallConfirmationDialog
@@ -556,7 +448,6 @@ export function InternalMCPCatalog({
         onInstall={handleNoAuthConfirm}
         catalogItem={noAuthCatalogItem}
         isInstalling={installMutation.isPending}
-        isAdmin={isAdmin}
       />
     </div>
   );

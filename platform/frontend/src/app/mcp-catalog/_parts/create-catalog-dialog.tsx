@@ -16,6 +16,7 @@ import { useCreateInternalMcpCatalogItem } from "@/lib/internal-mcp-catalog.quer
 import { McpCatalogForm } from "./mcp-catalog-form";
 import type { McpCatalogFormValues } from "./mcp-catalog-form.types";
 import { transformFormToApiData } from "./mcp-catalog-form.utils";
+import { Api2McpGenerator } from "./api2mcp-generator";
 
 interface CreateCatalogDialogProps {
   isOpen: boolean;
@@ -24,14 +25,16 @@ interface CreateCatalogDialogProps {
 
 type ServerType =
   archestraApiTypes.CreateInternalMcpCatalogItemData["body"]["serverType"];
+type TabValue = ServerType | "api2mcp";
 
 export function CreateCatalogDialog({
   isOpen,
   onClose,
 }: CreateCatalogDialogProps) {
-  const [activeTab, setActiveTab] = useState<ServerType>("remote");
+  const [activeTab, setActiveTab] = useState<TabValue>("remote");
   const createMutation = useCreateInternalMcpCatalogItem();
-  const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const remoteSubmitHandlerRef = useRef<(() => void) | null>(null);
+  const localSubmitHandlerRef = useRef<(() => void) | null>(null);
 
   const handleClose = () => {
     setActiveTab("remote");
@@ -48,28 +51,26 @@ export function CreateCatalogDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add MCP Server Using Config</DialogTitle>
-          <DialogDescription>
-            Add a new MCP server to your private registry.
-          </DialogDescription>
+          <DialogTitle>Add MCP Server</DialogTitle>
         </DialogHeader>
 
         <Tabs
           value={activeTab}
           onValueChange={(v) => {
-            setActiveTab(v as ServerType);
+            setActiveTab(v as TabValue);
           }}
         >
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="remote">Remote</TabsTrigger>
             <TabsTrigger value="local">Local</TabsTrigger>
+            <TabsTrigger value="api2mcp">Generate (API2MCP)</TabsTrigger>
           </TabsList>
 
           <TabsContent value="remote" className="space-y-4 mt-4">
             <McpCatalogForm
               mode="create"
               onSubmit={onSubmit}
-              submitButtonRef={submitButtonRef}
+              submitHandlerRef={remoteSubmitHandlerRef}
               serverType="remote"
             />
           </TabsContent>
@@ -78,23 +79,36 @@ export function CreateCatalogDialog({
             <McpCatalogForm
               mode="create"
               onSubmit={onSubmit}
-              submitButtonRef={submitButtonRef}
+              submitHandlerRef={localSubmitHandlerRef}
               serverType="local"
             />
           </TabsContent>
+
+          <TabsContent value="api2mcp" className="mt-4">
+            <Api2McpGenerator onGenerationComplete={handleClose} />
+          </TabsContent>
         </Tabs>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose} type="button">
-            Cancel
-          </Button>
-          <Button
-            onClick={() => submitButtonRef.current?.click()}
-            disabled={createMutation.isPending}
-          >
-            {createMutation.isPending ? "Adding..." : "Add Server"}
-          </Button>
-        </DialogFooter>
+        {activeTab !== "api2mcp" && (
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClose} type="button">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const handler =
+                  (activeTab === "local"
+                    ? localSubmitHandlerRef
+                    : remoteSubmitHandlerRef
+                  ).current ?? null;
+                handler?.();
+              }}
+              disabled={createMutation.isPending}
+            >
+              {createMutation.isPending ? "Adding..." : "Add Server"}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

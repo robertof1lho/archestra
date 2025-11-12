@@ -5,7 +5,7 @@ import type { FastifyReply } from "fastify";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import config from "@/config";
-import { AgentModel, InteractionModel } from "@/models";
+import { AgentModel, InteractionModel, ToolModel } from "@/models";
 import { getObservableFetch, reportLLMTokens } from "@/models/llm-metrics";
 import {
   type Agent,
@@ -31,7 +31,7 @@ export const injectTools = async (
   const assignedAnthropicTools: z.infer<
     typeof Anthropic.Tools.CustomToolSchema
   >[] = assignedTools.map((tool) => ({
-    name: tool.name,
+    name: ToolModel.unslugifyName(tool.name),
     description: tool.description || undefined,
     input_schema: tool.parameters || {},
     type: "custom" as const,

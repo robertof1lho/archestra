@@ -214,6 +214,42 @@ export function useMcpServerTools(mcpServerId: string | null) {
   });
 }
 
+type LocalRuntimeStatus = {
+  serverId: string;
+  status: "starting" | "running" | "stopped" | "error";
+  port: number;
+  statusPort?: number;
+  pid?: number;
+  startedAt?: string;
+  exitedAt?: string;
+  logs: string[];
+  error?: string;
+};
+
+export function useLocalMcpRuntimeStatus(serverId: string | null) {
+  return useQuery({
+    queryKey: ["mcp-servers", serverId, "runtime-status"],
+    queryFn: async () => {
+      if (!serverId) {
+        return null;
+      }
+      try {
+        const response = await fetch(
+          `/api/mcp_server/${serverId}/runtime_status`,
+        );
+        if (!response.ok) {
+          return null;
+        }
+        return (await response.json()) as LocalRuntimeStatus;
+      } catch {
+        return null;
+      }
+    },
+    enabled: Boolean(serverId),
+    refetchInterval: serverId ? 5000 : false,
+  });
+}
+
 export function useMcpServerInstallationStatus(
   installingMcpServerId: string | null,
 ) {
@@ -257,8 +293,8 @@ export function useMcpServerInstallationStatus(
  * @param catalogId - Optional catalog ID to further filter tokens.
  */
 export function useAgentAvailableTokens(params: {
-  agentIds: string[];
-  catalogId: string;
+  agentIds?: string[];
+  catalogId?: string | null;
 }) {
   const { agentIds, catalogId } = params;
 

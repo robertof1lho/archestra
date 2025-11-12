@@ -59,34 +59,17 @@ const getNavigationItems = (
   role: Role,
 ): MenuItem[] => {
   return [
-    {
-      title: "How security works",
-      url: "/test-agent",
-      icon: Info,
-    },
     ...(isAuthenticated
       ? [
           {
-            title: "Agents",
+            title: "MCP Gateways",
             url: "/agents",
             icon: Bot,
           },
           {
             title: "Logs",
-            url: "/logs/llm-proxy",
+            url: "/logs/mcp-gateway",
             icon: MessagesSquare,
-            subItems: [
-              {
-                title: "LLM Proxy",
-                url: "/logs/llm-proxy",
-                icon: MessagesSquare,
-              },
-              {
-                title: "MCP Gateway",
-                url: "/logs/mcp-gateway",
-                icon: Router,
-              },
-            ],
           },
           {
             title: "Tools",
@@ -97,23 +80,7 @@ const getNavigationItems = (
             title: "MCP Registry",
             url: "/mcp-catalog",
             icon: Router,
-            subItems: [
-              {
-                title: "Installation Requests",
-                url: "/mcp-catalog/installation-requests",
-                icon: ClipboardList,
-              },
-            ],
           },
-          ...(role === "admin"
-            ? [
-                {
-                  title: "LLM & MCP Gateways",
-                  url: "/gateways",
-                  icon: Settings,
-                },
-              ]
-            : []),
         ]
       : []),
   ];
@@ -146,8 +113,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="flex items-center flex-row justify-between">
         <div className="flex items-center gap-2 px-2 py-2">
-          <Image src="/logo.png" alt="Logo" width={28} height={28} />
-          <span className="text-base font-semibold">Archestra.AI</span>
+          <span className="text-base font-semibold">MCP Gateaway</span>
         </div>
         <ColorModeToggle />
       </SidebarHeader>
@@ -185,96 +151,9 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        <SignedIn>
-          <WithRole requiredExactRole="admin">
-            <SidebarGroup className="px-4">
-              <SidebarGroupLabel>Security sub-agents</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {actionItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={item.url === pathname}
-                      >
-                        <Link href={item.url}>
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </WithRole>
-        </SignedIn>
-
-        <SidebarGroup className="px-4">
-          <SidebarGroupLabel>Community</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a
-                    href="https://github.com/archestra-ai/archestra"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Github />
-                    <span className="flex items-center gap-2">
-                      Star us on GitHub
-                      <span className="flex items-center gap-1 text-xs">
-                        <Star className="h-3 w-3" />
-                        {starCount}
-                      </span>
-                    </span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a
-                    href="https://www.archestra.ai/docs/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <BookOpen />
-                    <span>Documentation</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a
-                    href="https://join.slack.com/t/archestracommunity/shared_invite/zt-39yk4skox-zBF1NoJ9u4t59OU8XxQChg"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Slack />
-                    <span>Talk to developers</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <a
-                    href="https://github.com/archestra-ai/archestra/issues/new"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Bug />
-                    <span>Report a bug</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <DefaultCredentialsWarning />
+        {/* <DefaultCredentialsWarning /> */}
         <SignedIn>
           <SidebarGroup className="mt-auto">
             <SidebarGroupContent>

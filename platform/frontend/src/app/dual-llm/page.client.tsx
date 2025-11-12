@@ -214,14 +214,6 @@ function DualLLMContent({
               prompt injection attacks by isolating untrusted data in a separate
               agent that can only respond via structured multiple choice
               answers.{" "}
-              <a
-                href="https://archestra.ai/docs/platform-dual-llm"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                Read the docs →
-              </a>
             </p>
           </div>
         </div>
@@ -578,3 +570,4 @@ function DualLLMContent({
     </div>
   );
 }
+

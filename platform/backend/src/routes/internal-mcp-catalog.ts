@@ -2,14 +2,55 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { isEqual, omitBy } from "lodash-es";
 import { z } from "zod";
 import { InternalMcpCatalogModel, McpServerModel } from "@/models";
+import { api2mcpService } from "@/services/api2mcp-service";
 import {
   ErrorResponseSchema,
   InsertInternalMcpCatalogSchema,
   RouteId,
   SelectInternalMcpCatalogSchema,
+  SelectMcpServerSchema,
   UpdateInternalMcpCatalogSchema,
   UuidIdSchema,
 } from "@/types";
+import { getUserFromRequest } from "@/utils";
+
+const Api2McpInputSchema = z.union([
+  z.object({
+    type: z.enum(["text", "file"]),
+    content: z.string().min(1, "Content is required"),
+    filename: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal("url"),
+    url: z.string().url(),
+  }),
+]);
+
+const Api2McpGenerationRequestSchema = z.object({
+  name: z.string().min(2),
+  description: z.string().optional(),
+  mode: z.enum(["spec", "reference"]).optional(),
+  input: Api2McpInputSchema,
+  baseUrl: z.string().url().optional(),
+  bearerToken: z.string().optional(),
+  preferScheme: z.enum(["https", "http", "ws", "wss"]).optional(),
+  methods: z.array(z.string()).optional(),
+  requestedPort: z.number().int().min(1).max(65535).optional(),
+});
+type Api2McpGenerationRequest = z.infer<
+  typeof Api2McpGenerationRequestSchema
+>;
+
+const Api2McpGenerationResponseSchema = z.object({
+  catalogItem: SelectInternalMcpCatalogSchema,
+  server: SelectMcpServerSchema,
+  runtime: z.object({
+    port: z.number(),
+    statusPort: z.number().optional(),
+    status: z.string(),
+    logs: z.array(z.string()),
+  }),
+});
 
 const internalMcpCatalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
@@ -223,6 +264,63 @@ const internalMcpCatalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
           error: {
             message:
               error instanceof Error ? error.message : "Internal server error",
+            type: "api_error",
+          },
+        });
+      }
+    },
+  );
+
+  fastify.post(
+    "/api/internal_mcp_catalog/api2mcp",
+    {
+      schema: {
+        operationId: RouteId.GenerateApi2McpServer,
+        description: "Generate, run, and register an MCP server via api2mcp",
+        tags: ["MCP Catalog"],
+        body: Api2McpGenerationRequestSchema,
+        response: {
+          200: Api2McpGenerationResponseSchema,
+          401: ErrorResponseSchema,
+          403: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const user = await getUserFromRequest(request);
+        if (!user) {
+          return reply.status(401).send({
+            error: {
+              message: "Unauthorized",
+              type: "unauthorized",
+            },
+          });
+        }
+
+        const body = request.body as Api2McpGenerationRequest;
+        const result = await api2mcpService.generateAndRegister({
+          ...body,
+          userId: user.id,
+          isAdmin: user.isAdmin,
+        });
+        return reply.send(result);
+      } catch (error) {
+        fastify.log.error(error);
+        const message =
+          error instanceof Error ? error.message : "Internal server error";
+        if (message.includes("Only admins")) {
+          return reply.status(403).send({
+            error: {
+              message,
+              type: "forbidden",
+            },
+          });
+        }
+        return reply.status(500).send({
+          error: {
+            message,
             type: "api_error",
           },
         });

@@ -1,17 +1,8 @@
 "use client";
 
 import type { archestraApiTypes } from "@archestra/shared";
-import {
-  Building2,
-  MoreVertical,
-  Pencil,
-  RefreshCw,
-  Trash2,
-  User,
-  Wrench,
-} from "lucide-react";
-import { useState } from "react";
-import { AssignAgentDialog } from "@/app/tools/_parts/assign-agent-dialog";
+import { MoreVertical, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,25 +12,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { WithRole } from "@/components/with-permission";
-import { authClient } from "@/lib/clients/auth/auth-client";
-import {
-  useMcpServerTools,
-  useRevokeAllTeamsMcpServerAccess,
-  useRevokeUserMcpServerAccess,
-} from "@/lib/mcp-server.query";
-import { BulkAssignAgentDialog } from "./bulk-assign-agent-dialog";
-import { ManageTeamsDialog } from "./manage-teams-dialog";
-import { ManageUsersDialog } from "./manage-users-dialog";
-import { McpToolsDialog } from "./mcp-tools-dialog";
 import { TransportBadges } from "./transport-badges";
 import { UninstallServerDialog } from "./uninstall-server-dialog";
+import {
+  useLocalMcpRuntimeStatus,
+  useMcpServerTools,
+} from "@/lib/mcp-server.query";
 
 export type CatalogItem =
   archestraApiTypes.GetInternalMcpCatalogResponses["200"][number];
@@ -51,31 +30,9 @@ export type CatalogItemWithOptionalLabel = CatalogItem & {
 export type InstalledServer =
   archestraApiTypes.GetMcpServersResponses["200"][number];
 
-type ToolForAssignment = {
-  id: string;
-  name: string;
-  description: string | null;
-  parameters: Record<string, unknown>;
-  createdAt: string;
-  mcpServerId: string | null;
-  mcpServerName: string | null;
-};
-
-type SimpleTool = {
-  id: string;
-  name: string;
-  description: string | null;
-  parameters: Record<string, unknown>;
-  createdAt: string;
-};
-
 export type McpServerCardProps = {
   item: CatalogItemWithOptionalLabel;
-  installedServer?:
-    | (InstalledServer & {
-        currentUserHasTeamAuth?: boolean;
-      })
-    | null;
+  installedServer?: InstalledServer | null;
   installingItemId: string | null;
   installationStatus?:
     | "error"
@@ -85,7 +42,6 @@ export type McpServerCardProps = {
     | "discovering-tools"
     | null;
   onInstall: () => void;
-  onInstallTeam: () => void;
   onInstallNoAuth: () => void;
   onReinstall: () => void;
   onEdit: () => void;
@@ -106,81 +62,50 @@ export function McpServerCard({
   installingItemId,
   installationStatus,
   onInstall,
-  onInstallTeam,
   onInstallNoAuth,
   onReinstall,
   onEdit,
   onDelete,
   isAdmin,
 }: McpServerCardBaseProps) {
-  const { data: tools, isLoading: isLoadingTools } = useMcpServerTools(
-    installedServer?.id ?? null,
-  );
-  const session = authClient.useSession();
-  const currentUserId = session.data?.user?.id;
-  const revokeUserAccessMutation = useRevokeUserMcpServerAccess();
-  const revokeAllTeamsMutation = useRevokeAllTeamsMcpServerAccess();
-
-  // Dialog state
-  const [isToolsDialogOpen, setIsToolsDialogOpen] = useState(false);
-  const [isManageUsersDialogOpen, setIsManageUsersDialogOpen] = useState(false);
-  const [isManageTeamsDialogOpen, setIsManageTeamsDialogOpen] = useState(false);
-  const [selectedToolForAssignment, setSelectedToolForAssignment] =
-    useState<ToolForAssignment | null>(null);
-  const [bulkAssignTools, setBulkAssignTools] = useState<SimpleTool[]>([]);
-  const [toolsDialogKey, setToolsDialogKey] = useState(0);
   const [uninstallingServer, setUninstallingServer] = useState<{
     id: string;
     name: string;
   } | null>(null);
+  const { data: tools = [], isLoading: areToolsLoading } =
+    useMcpServerTools(installedServer?.id ?? null);
+  const shouldTrackRuntime =
+    installedServer && installedServer.localInstallationStatus !== "idle";
+  const { data: runtimeStatus } = useLocalMcpRuntimeStatus(
+    shouldTrackRuntime ? installedServer.id : null,
+  );
+  const [showToolList, setShowToolList] = useState(false);
 
-  const needsReinstall = installedServer?.reinstallRequired ?? false;
-  const userCount = installedServer?.users?.length ?? 0;
-  const teamsCount = installedServer?.teams?.length ?? 0;
-  const toolsDiscoveredCount = tools?.length ?? 0;
-  const toolsAssignedCount = !tools
-    ? 0
-    : tools.filter((tool) => tool.assignedAgentCount > 0).length;
-  const installed = !!installedServer && toolsDiscoveredCount > 0;
   const isInstalling = Boolean(
     installingItemId === item.id ||
       installationStatus === "pending" ||
       (installationStatus === "discovering-tools" && installedServer),
   );
-
-  const localInstalllingLabel =
-    installationStatus === "discovering-tools"
-      ? "Discovering tools..."
-      : "Installing...";
-  const isCurrentUserAuthenticated =
-    currentUserId && installedServer?.users
-      ? installedServer.users.includes(currentUserId)
-      : false;
-  const currentUserHasTeamAuth = installedServer?.currentUserHasTeamAuth;
-
-  const isRemoteVariant = variant === "remote";
-
-  const requiresAuth = !!(
+  const needsReinstall = installedServer?.reinstallRequired ?? false;
+  const installed = Boolean(installedServer);
+  const requiresAuth =
     (item.userConfig && Object.keys(item.userConfig).length > 0) ||
-    item.oauthConfig
-  );
+    item.oauthConfig;
+  const localInstalllingLabel =
+    installationStatus === "discovering-tools" ? "Discovering..." : "Installing...";
 
-  const handleRevokeMyAccess = async () => {
-    if (!currentUserId || !installedServer?.catalogId) return;
-    await revokeUserAccessMutation.mutateAsync({
-      catalogId: installedServer.catalogId,
-      userId: currentUserId,
-    });
-  };
+  const runtimeBadgeVariant = useMemo(() => {
+    if (!runtimeStatus) return "secondary";
+    switch (runtimeStatus.status) {
+      case "running":
+        return "default";
+      case "error":
+        return "destructive";
+      default:
+        return "secondary";
+    }
+  }, [runtimeStatus]);
 
-  const handleRevokeTeamAccess = async () => {
-    if (!installedServer?.catalogId) return;
-    await revokeAllTeamsMutation.mutateAsync({
-      catalogId: installedServer.catalogId,
-    });
-  };
-
-  // JSX parts
   const manageCatalogItemDropdownMenu = (
     <div className="flex flex-wrap gap-1 items-center flex-shrink-0 mt-1">
       <DropdownMenu>
@@ -206,101 +131,9 @@ export function McpServerCard({
       </DropdownMenu>
     </div>
   );
-  const usersAuthenticated = (
-    <>
-      <div className="flex items-center gap-2">
-        <User className="h-4 w-4 text-muted-foreground" />
-        <span className="text-muted-foreground">
-          Users authenticated:{" "}
-          <span className="font-medium text-foreground">{userCount}</span>
-          {isCurrentUserAuthenticated && (
-            <Badge
-              variant="secondary"
-              className="ml-2 text-[11px] px-1.5 py-1 h-4 bg-teal-600/20 text-teal-700 dark:bg-teal-400/20 dark:text-teal-400 border-teal-600/30 dark:border-teal-400/30"
-            >
-              You
-            </Badge>
-          )}
-        </span>
-      </div>
-      {userCount > 0 && (
-        <Button
-          onClick={() => setIsManageUsersDialogOpen(true)}
-          size="sm"
-          variant="link"
-          className="h-7 text-xs"
-        >
-          Manage
-        </Button>
-      )}
-    </>
-  );
 
-  const teamsAccess = (
-    <>
-      <div className="flex items-center gap-2">
-        <Building2 className="h-4 w-4 text-muted-foreground" />
-        <span className="text-muted-foreground">
-          Teams with access:{" "}
-          <span className="font-medium text-foreground">{teamsCount}</span>
-        </span>
-      </div>
-      {teamsCount > 0 && (
-        <Button
-          onClick={() => setIsManageTeamsDialogOpen(true)}
-          size="sm"
-          variant="link"
-          className="h-7 text-xs"
-        >
-          Manage
-        </Button>
-      )}
-    </>
-  );
-
-  const toolsAssigned = (
-    <>
-      <div className="flex items-center gap-2">
-        <Wrench className="h-4 w-4 text-muted-foreground" />
-        <span className="text-muted-foreground">
-          Tools assigned:{" "}
-          <span className="font-medium text-foreground">
-            {toolsAssignedCount}{" "}
-            {toolsDiscoveredCount ? `(out of ${toolsDiscoveredCount})` : ""}
-          </span>
-        </span>
-      </div>
-      {toolsDiscoveredCount > 0 && (
-        <Button
-          onClick={() => setIsToolsDialogOpen(true)}
-          size="sm"
-          variant="link"
-          className="h-7 text-xs"
-        >
-          Manage
-        </Button>
-      )}
-    </>
-  );
-
-  const remoteCardContent = (
-    <>
-      <WithRole requiredExactRole="admin">
-        <div className="bg-muted/50 rounded-md mb-2 overflow-hidden flex flex-col">
-          {[
-            { id: "1", content: usersAuthenticated },
-            { id: "2", content: teamsAccess },
-            { id: "3", content: toolsAssigned },
-          ].map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between px-3 py-2 text-sm border-b border-muted h-10"
-            >
-              {item.content}
-            </div>
-          ))}
-        </div>
-      </WithRole>
+  const remoteActions = (
+    <div className="space-y-3">
       {needsReinstall && (
         <Button
           onClick={onReinstall}
@@ -313,239 +146,65 @@ export function McpServerCard({
           {isInstalling ? "Reinstalling..." : "Reinstall Required"}
         </Button>
       )}
-      {requiresAuth && !isCurrentUserAuthenticated && (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={onInstall}
-                disabled={isInstalling}
-                size="sm"
-                variant="outline"
-                className="w-full"
-              >
-                <User className="mr-2 h-4 w-4" />
-                {isInstalling ? "Adding..." : "Auth for myself"}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Authenticate to create a token for my personal usage</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      )}
-      {isCurrentUserAuthenticated && (
+      <WithRole requiredExactRole="admin">
         <Button
-          onClick={handleRevokeMyAccess}
+          onClick={onInstall}
+          disabled={isInstalling || installed}
           size="sm"
           variant="outline"
-          className="w-full bg-accent text-accent-foreground hover:bg-accent"
+          className="w-full"
         >
-          Revoke personal token
+          {installed
+            ? "Installed"
+            : isInstalling
+              ? "Installing..."
+              : "Install"}
         </Button>
+      </WithRole>
+      {requiresAuth && (
+        <p className="text-xs text-muted-foreground">
+          Authentication is required before tokens become available.
+        </p>
       )}
-      <WithRole requiredExactRole="admin">
-        {currentUserHasTeamAuth && (
-          <Button
-            onClick={handleRevokeTeamAccess}
-            size="sm"
-            variant="outline"
-            className="w-full bg-accent text-accent-foreground hover:bg-accent"
-          >
-            Revoke teams token
-          </Button>
-        )}
-      </WithRole>
-      <WithRole requiredExactRole="admin">
-        {requiresAuth && !currentUserHasTeamAuth && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  onClick={onInstallTeam}
-                  disabled={isInstalling}
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Building2 className="mr-2 h-4 w-4" />
-                  {isInstalling ? "Adding..." : "Auth for teams"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Authenticate and allow teams to use my token</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </WithRole>
-    </>
+    </div>
   );
 
-  const localCardContent = (
-    <>
-      <WithRole requiredExactRole="admin">
-        <div className="bg-muted/50 rounded-md mb-2 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between px-3 py-2 text-sm border-b border-muted h-10">
-            {toolsAssigned}
-          </div>
-        </div>
-      </WithRole>
-      {needsReinstall && (
+  const localActions = (
+    <WithRole requiredExactRole="admin">
+      {installed ? (
         <Button
-          onClick={onReinstall}
+          onClick={() =>
+            installedServer &&
+            setUninstallingServer({
+              id: installedServer.id,
+              name: item.label || item.name,
+            })
+          }
           size="sm"
-          variant="default"
+          variant="outline"
           className="w-full"
-          disabled={isInstalling}
         >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          {isInstalling ? "Reinstalling..." : "Reinstall Required"}
+          Uninstall
+        </Button>
+      ) : (
+        <Button
+          onClick={onInstallNoAuth}
+          disabled={isInstalling}
+          size="sm"
+          variant="outline"
+          className="w-full"
+        >
+          {isInstalling ? localInstalllingLabel : "Install"}
         </Button>
       )}
-      <WithRole requiredExactRole="member">
-        {installed ? (
-          <Button disabled size="sm" variant="outline" className="w-full">
-            Installed
-          </Button>
-        ) : (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    disabled
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                  >
-                    Not installed
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Only Admins can install MCP servers</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </WithRole>
-      <WithRole requiredExactRole="admin">
-        {installed ? (
-          <Button
-            onClick={() =>
-              installedServer &&
-              setUninstallingServer({
-                id: installedServer.id,
-                name: item.label || item.name,
-              })
-            }
-            size="sm"
-            variant="outline"
-            className="w-full"
-          >
-            Uninstall
-          </Button>
-        ) : (
-          <Button
-            onClick={onInstallNoAuth}
-            disabled={isInstalling}
-            size="sm"
-            variant="outline"
-            className="w-full"
-          >
-            {isInstalling ? localInstalllingLabel : "Install"}
-          </Button>
-        )}
-      </WithRole>
-    </>
+    </WithRole>
   );
 
   const dialogs = (
-    <>
-      <McpToolsDialog
-        key={toolsDialogKey}
-        open={isToolsDialogOpen}
-        onOpenChange={(open) => {
-          setIsToolsDialogOpen(open);
-          if (!open) {
-            setSelectedToolForAssignment(null);
-          }
-        }}
-        serverName={installedServer?.name ?? ""}
-        tools={tools ?? []}
-        isLoading={isLoadingTools}
-        onAssignTool={(tool) => {
-          setSelectedToolForAssignment({
-            ...tool,
-            mcpServerId: installedServer?.id ?? null,
-            mcpServerName: installedServer?.name ?? null,
-          });
-        }}
-        onBulkAssignTools={(tools) => {
-          setBulkAssignTools(tools);
-        }}
-      />
-
-      <BulkAssignAgentDialog
-        tools={bulkAssignTools.length > 0 ? bulkAssignTools : null}
-        open={bulkAssignTools.length > 0}
-        onOpenChange={(open) => {
-          if (!open) {
-            setBulkAssignTools([]);
-            // Reset the tools dialog to clear selections
-            setToolsDialogKey((prev) => prev + 1);
-          }
-        }}
-        catalogId={item.id}
-      />
-
-      <AssignAgentDialog
-        tool={
-          selectedToolForAssignment
-            ? {
-                id: selectedToolForAssignment.id,
-                tool: {
-                  id: selectedToolForAssignment.id,
-                  name: selectedToolForAssignment.name,
-                  description: selectedToolForAssignment.description,
-                  parameters: selectedToolForAssignment.parameters,
-                  createdAt: selectedToolForAssignment.createdAt,
-                  updatedAt: selectedToolForAssignment.createdAt,
-                  mcpServerId: selectedToolForAssignment.mcpServerId,
-                  mcpServerName: selectedToolForAssignment.mcpServerName,
-                },
-                agent: null,
-                createdAt: selectedToolForAssignment.createdAt,
-                updatedAt: selectedToolForAssignment.createdAt,
-              }
-            : null
-        }
-        open={!!selectedToolForAssignment}
-        onOpenChange={(open) => {
-          if (!open) setSelectedToolForAssignment(null);
-        }}
-      />
-
-      <ManageUsersDialog
-        isOpen={isManageUsersDialogOpen}
-        onClose={() => setIsManageUsersDialogOpen(false)}
-        server={installedServer}
-        label={item.label || item.name}
-      />
-
-      <ManageTeamsDialog
-        isOpen={isManageTeamsDialogOpen}
-        onClose={() => setIsManageTeamsDialogOpen(false)}
-        server={installedServer}
-        label={item.label || item.name}
-      />
-
-      <UninstallServerDialog
-        server={uninstallingServer}
-        onClose={() => setUninstallingServer(null)}
-      />
-    </>
+    <UninstallServerDialog
+      server={uninstallingServer}
+      onClose={() => setUninstallingServer(null)}
+    />
   );
 
   return (
@@ -556,6 +215,13 @@ export function McpServerCard({
             <CardTitle className="text-lg truncate mb-1 flex items-center">
               {item.name}
             </CardTitle>
+            {runtimeStatus && (
+              <Badge variant={runtimeBadgeVariant} className="mb-1">
+                {runtimeStatus.status === "running"
+                  ? `Running :${runtimeStatus.port}`
+                  : `Status: ${runtimeStatus.status}`}
+              </Badge>
+            )}
             <div className="flex items-center gap-2">
               {item.oauthConfig && (
                 <Badge variant="secondary" className="text-xs">
@@ -563,10 +229,10 @@ export function McpServerCard({
                 </Badge>
               )}
               <TransportBadges
-                isRemote={isRemoteVariant}
+                isRemote={variant === "remote"}
                 transportType={item.localConfig?.transportType}
               />
-              {isRemoteVariant && !requiresAuth && (
+              {variant === "remote" && !requiresAuth && (
                 <Badge
                   variant="secondary"
                   className="text-xs bg-green-700 text-white"
@@ -579,8 +245,42 @@ export function McpServerCard({
           {isAdmin && manageCatalogItemDropdownMenu}
         </div>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        {isRemoteVariant ? remoteCardContent : localCardContent}
+      <CardContent className="flex flex-col gap-3">
+        {item.description && (
+          <p className="text-sm text-muted-foreground">{item.description}</p>
+        )}
+        {installedServer && (
+          <div className="border-t border-border/60 pt-3 text-sm space-y-2">
+            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-muted-foreground">
+              <span>Tools available</span>
+              <button
+                type="button"
+                onClick={() => setShowToolList((prev) => !prev)}
+                className="font-semibold text-primary underline-offset-2 hover:underline"
+                disabled={areToolsLoading}
+              >
+                {areToolsLoading
+                  ? "Loading…"
+                  : `${tools.length} tool${tools.length === 1 ? "" : "s"}`}
+              </button>
+            </div>
+            {!areToolsLoading && tools.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                No tools detected for this MCP server yet.
+              </p>
+            )}
+            {!areToolsLoading && tools.length > 0 && showToolList && (
+              <div className="flex flex-wrap gap-2 text-xs">
+                {tools.map((tool) => (
+                  <Badge key={tool.id} variant="outline" className="text-xs">
+                    {tool.name}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {variant === "remote" ? remoteActions : localActions}
       </CardContent>
       {dialogs}
     </Card>

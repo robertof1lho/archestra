@@ -19,9 +19,9 @@ interface TokenSelectProps {
   disabled?: boolean;
   className?: string;
   /** Catalog ID to filter tokens - only shows tokens for the same catalog item */
-  catalogId: string;
+  catalogId?: string | null;
   /** Agent IDs to filter tokens - only shows tokens that can be used with the specified agents */
-  agentIds: string[];
+  agentIds?: string[];
 }
 
 /**
@@ -40,8 +40,8 @@ export function TokenSelect({
   agentIds,
 }: TokenSelectProps) {
   const { data: mcpServers, isLoading } = useAgentAvailableTokens({
-    agentIds: agentIds ?? null,
-    catalogId: catalogId ?? null,
+    agentIds: agentIds?.length ? agentIds : [],
+    catalogId: catalogId ?? "",
   });
 
   // Separate team and personal tokens

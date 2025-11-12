@@ -123,6 +123,7 @@ export const RouteId = {
   GetInternalMcpCatalogItem: "getInternalMcpCatalogItem",
   UpdateInternalMcpCatalogItem: "updateInternalMcpCatalogItem",
   DeleteInternalMcpCatalogItem: "deleteInternalMcpCatalogItem",
+  GenerateApi2McpServer: "generateApi2McpServer",
 
   // MCP Server Routes
   GetMcpServers: "getMcpServers",
@@ -137,6 +138,7 @@ export const RouteId = {
   RevokeAllTeamsMcpServerAccess: "revokeAllTeamsMcpServerAccess",
   RestartMcpServer: "restartMcpServer",
   GetMcpServerInstallationStatus: "getMcpServerInstallationStatus",
+  GetLocalMcpRuntimeStatus: "getLocalMcpRuntimeStatus",
 
   // MCP Server Installation Request Routes
   GetMcpServerInstallationRequests: "getMcpServerInstallationRequests",
