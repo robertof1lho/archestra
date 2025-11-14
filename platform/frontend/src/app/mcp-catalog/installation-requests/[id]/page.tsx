@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { use, useState } from "react";
+import { PageContainer } from "@/components/page-container";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,45 +64,49 @@ export default function InstallationRequestDetailPage({
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-6 max-w-5xl">
-        <Skeleton className="h-8 w-48 mb-6" />
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-3/4" />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-2/3" />
-              </CardContent>
-            </Card>
-          </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <Skeleton className="h-6 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full" />
-              </CardContent>
-            </Card>
+      <PageContainer className="py-6">
+        <div className="mx-auto w-full max-w-5xl">
+          <Skeleton className="h-8 w-48 mb-6" />
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="md:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-3/4" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </CardContent>
+              </Card>
+            </div>
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <Skeleton className="h-6 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-4 w-full" />
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
   if (!request) {
     return (
-      <div className="container mx-auto p-6 max-w-5xl">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground">Request not found</p>
-          </CardContent>
-        </Card>
-      </div>
+      <PageContainer className="py-6">
+        <div className="mx-auto w-full max-w-5xl">
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <p className="text-muted-foreground">Request not found</p>
+            </CardContent>
+          </Card>
+        </div>
+      </PageContainer>
     );
   }
 
@@ -130,7 +135,7 @@ export default function InstallationRequestDetailPage({
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <div className="flex items-center gap-4 mb-2">
             <Link href="/mcp-catalog/installation-requests">
               <Button variant="ghost" size="icon">
@@ -150,13 +155,14 @@ export default function InstallationRequestDetailPage({
               {status.label}
             </Badge>
           </div>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-5xl mx-auto px-8 py-8">
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-6">
-            <Card>
+      <PageContainer>
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="md:col-span-2 space-y-6">
+              <Card>
               <CardHeader>
                 <CardTitle>Request Details</CardTitle>
               </CardHeader>
@@ -557,6 +563,7 @@ export default function InstallationRequestDetailPage({
             </Card>
           </div>
         </div>
+      </PageContainer>
       </div>
     </div>
   );

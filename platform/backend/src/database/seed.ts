@@ -6,6 +6,7 @@ import {
   DEMO_AGENT_ID,
 } from "@archestra/shared";
 import { eq } from "drizzle-orm";
+import config from "@/config";
 import logger from "@/logging";
 import AgentModel from "@/models/agent";
 import AgentToolModel from "@/models/agent-tool";
@@ -30,13 +31,22 @@ import db, { schema } from ".";
  */
 export async function seedDatabase(): Promise<void> {
   logger.info("\n🌱 Starting database seed...\n");
+  const shouldSeedDemoData = config.seeding?.seedDemoData ?? false;
 
   try {
     // Seed in correct order (respecting foreign keys)
     await seedAdminUserAndDefaultOrg();
-    await seedAgents();
-    await seedTools();
-    await seedInteractions();
+
+    if (shouldSeedDemoData) {
+      await seedAgents();
+      await seedTools();
+      await seedInteractions();
+    } else {
+      logger.info(
+        "↷ Skipping demo agents/tools/interactions (set ARCHESTRA_SEED_DEMO_DATA=true to enable)",
+      );
+    }
+
     await seedDualLlmConfig();
 
     logger.info("\n✅ Database seed completed successfully!\n");

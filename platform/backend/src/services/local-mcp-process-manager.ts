@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { type ChildProcess, spawn } from "node:child_process";
 import path from "node:path";
 import logger from "@/logging";
 import { PYTHON_BIN } from "./api2mcp-runner";
@@ -34,9 +34,15 @@ interface ProcessInfo {
   startedAt?: Date;
   exitedAt?: Date;
   error?: string;
+  options: StartLocalProcessOptions;
+  shouldAutoRestart: boolean;
+  restartAttempts: number;
+  restartTimer?: NodeJS.Timeout;
 }
 
 const MAX_LOG_LINES = 200;
+const MAX_RESTART_ATTEMPTS = 5;
+const BASE_RESTART_DELAY_MS = 2000;
 
 class LocalMcpProcessManager {
   private processes = new Map<string, ProcessInfo>();
@@ -52,71 +58,7 @@ class LocalMcpProcessManager {
       });
     }
 
-    const scriptDir = path.dirname(options.scriptPath);
-    const child = spawn(PYTHON_BIN, [options.scriptPath], {
-      cwd: scriptDir,
-      env: {
-        ...process.env,
-        ...(options.env || {}),
-        API2MCP_PORT: String(options.port),
-        ...(options.statusPort
-          ? { API2MCP_STATUS_PORT: String(options.statusPort) }
-          : {}),
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    const info: ProcessInfo = {
-      child,
-      status: "starting",
-      logs: [],
-      port: options.port,
-      statusPort: options.statusPort,
-    };
-
-    const appendLog = (prefix: string, chunk: Buffer) => {
-      const text = chunk.toString().trimEnd();
-      if (!text) return;
-      info.logs.push(`${prefix} ${text}`);
-      if (info.logs.length > MAX_LOG_LINES) {
-        info.logs.splice(0, info.logs.length - MAX_LOG_LINES);
-      }
-      if (text.includes("[mcp]")) {
-        info.status = "running";
-        info.startedAt = info.startedAt ?? new Date();
-      }
-    };
-
-    child.stdout?.on("data", (chunk) => appendLog("[stdout]", chunk));
-    child.stderr?.on("data", (chunk) => appendLog("[stderr]", chunk));
-
-    child.once("spawn", () => {
-      info.status = "running";
-      info.startedAt = new Date();
-    });
-
-    child.once("error", (error) => {
-      info.status = "error";
-      info.error = error.message;
-      info.exitedAt = new Date();
-      logger.error(
-        { err: error, serverId: options.serverId },
-        "Failed to start local MCP server process",
-      );
-    });
-
-    child.once("close", (code) => {
-      info.exitedAt = new Date();
-      if (code === 0 && info.status !== "error") {
-        info.status = "stopped";
-      } else if (info.status !== "error") {
-        info.status = "error";
-        info.error = `Exited with code ${code}`;
-      }
-      this.processes.set(options.serverId, info);
-    });
-
-    this.processes.set(options.serverId, info);
+    this.spawnProcess(options);
     return this.toSummary(options.serverId);
   }
 
@@ -131,6 +73,12 @@ class LocalMcpProcessManager {
     const info = this.processes.get(serverId);
     if (!info) return;
 
+    info.shouldAutoRestart = false;
+    if (info.restartTimer) {
+      clearTimeout(info.restartTimer);
+      info.restartTimer = undefined;
+    }
+
     if (!info.child.killed) {
       info.child.kill();
     }
@@ -140,9 +88,7 @@ class LocalMcpProcessManager {
   }
 
   listSummaries(): LocalProcessSummary[] {
-    return Array.from(this.processes.keys()).map((id) =>
-      this.toSummary(id),
-    );
+    return Array.from(this.processes.keys()).map((id) => this.toSummary(id));
   }
 
   private toSummary(serverId: string): LocalProcessSummary {
@@ -167,6 +113,116 @@ class LocalMcpProcessManager {
       logs: [...info.logs],
       error: info.error,
     };
+  }
+
+  private spawnProcess(
+    options: StartLocalProcessOptions,
+    existing?: ProcessInfo,
+  ): void {
+    const scriptDir = path.dirname(options.scriptPath);
+    const child = spawn(PYTHON_BIN, [options.scriptPath], {
+      cwd: scriptDir,
+      env: {
+        ...process.env,
+        ...(options.env || {}),
+        API2MCP_PORT: String(options.port),
+        ...(options.statusPort
+          ? { API2MCP_STATUS_PORT: String(options.statusPort) }
+          : {}),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const info: ProcessInfo = existing ?? {
+      child,
+      status: "starting",
+      logs: [],
+      port: options.port,
+      statusPort: options.statusPort,
+      options,
+      shouldAutoRestart: true,
+      restartAttempts: 0,
+    };
+    info.child = child;
+    info.status = "starting";
+    info.port = options.port;
+    info.statusPort = options.statusPort;
+    info.options = options;
+    info.shouldAutoRestart = true;
+    info.restartAttempts = 0;
+    info.error = undefined;
+    if (!existing) {
+      info.logs = [];
+    }
+
+    const appendLog = (prefix: string, chunk: Buffer) => {
+      const text = chunk.toString().trimEnd();
+      if (!text) return;
+      info.logs.push(`${prefix} ${text}`);
+      if (info.logs.length > MAX_LOG_LINES) {
+        info.logs.splice(0, info.logs.length - MAX_LOG_LINES);
+      }
+      if (text.includes("[mcp]")) {
+        info.status = "running";
+        info.startedAt = info.startedAt ?? new Date();
+      }
+    };
+
+    child.stdout?.on("data", (chunk) => appendLog("[stdout]", chunk));
+    child.stderr?.on("data", (chunk) => appendLog("[stderr]", chunk));
+
+    child.once("spawn", () => {
+      info.status = "running";
+      info.startedAt = new Date();
+      info.restartAttempts = 0;
+    });
+
+    child.once("error", (error) => {
+      info.status = "error";
+      info.error = error.message;
+      info.exitedAt = new Date();
+      logger.error(
+        { err: error, serverId: options.serverId },
+        "Failed to start local MCP server process",
+      );
+    });
+
+    child.once("close", (code) => {
+      info.exitedAt = new Date();
+      if (info.shouldAutoRestart) {
+        if (info.restartAttempts >= MAX_RESTART_ATTEMPTS) {
+          info.status = "error";
+          info.error = `Exited with code ${code}; reached max restart attempts`;
+          info.shouldAutoRestart = false;
+          this.processes.set(options.serverId, info);
+          return;
+        }
+        const delay = BASE_RESTART_DELAY_MS * 2 ** info.restartAttempts;
+        info.restartAttempts += 1;
+        info.status = "starting";
+        info.restartTimer = setTimeout(() => {
+          this.spawnProcess(options, info);
+        }, delay);
+        logger.warn(
+          {
+            serverId: options.serverId,
+            delay,
+            attempt: info.restartAttempts,
+          },
+          "Local MCP server exited; scheduling auto-restart",
+        );
+      } else {
+        if (code === 0 && info.status !== "error") {
+          info.status = "stopped";
+        } else if (info.status !== "error") {
+          info.status = "error";
+          info.error = `Exited with code ${code}`;
+        }
+      }
+      this.processes.set(options.serverId, info);
+    });
+
+    this.processes.set(options.serverId, info);
   }
 }
 

@@ -9,6 +9,7 @@ import {
   SecretModel,
   ToolModel,
 } from "@/models";
+import { localMcpProcessManager } from "@/services/local-mcp-process-manager";
 import {
   ErrorResponseSchema,
   InsertMcpServerSchema,
@@ -18,7 +19,6 @@ import {
   UuidIdSchema,
 } from "@/types";
 import { getUserFromRequest } from "@/utils";
-import { localMcpProcessManager } from "@/services/local-mcp-process-manager";
 
 const LocalRuntimeStatusSchema = z.object({
   serverId: UuidIdSchema,
@@ -30,6 +30,15 @@ const LocalRuntimeStatusSchema = z.object({
   exitedAt: z.string().optional(),
   logs: z.array(z.string()),
   error: z.string().optional(),
+});
+
+const PingRuntimeResponseSchema = z.object({
+  ok: z.boolean(),
+  status: LocalRuntimeStatusSchema.shape.status.optional(),
+  statusCode: z.number().optional(),
+  latencyMs: z.number().optional(),
+  details: z.any().optional(),
+  message: z.string().optional(),
 });
 
 const mcpServerRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -465,6 +474,141 @@ const mcpServerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
 
         return reply.send(summary);
+      } catch (error) {
+        fastify.log.error(error);
+        return reply.status(500).send({
+          error: {
+            message:
+              error instanceof Error ? error.message : "Internal server error",
+            type: "api_error",
+          },
+        });
+      }
+    },
+  );
+
+  fastify.get(
+    "/api/mcp_server/:id/ping",
+    {
+      schema: {
+        operationId: RouteId.PingLocalMcpServer,
+        description:
+          "Ping the local MCP server /status endpoint to verify responsiveness",
+        tags: ["MCP Server"],
+        params: z.object({
+          id: UuidIdSchema,
+        }),
+        response: {
+          200: PingRuntimeResponseSchema,
+          401: ErrorResponseSchema,
+          404: ErrorResponseSchema,
+          500: ErrorResponseSchema,
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const user = await getUserFromRequest(request);
+        if (!user) {
+          return reply.status(401).send({
+            error: {
+              message: "Unauthorized",
+              type: "unauthorized",
+            },
+          });
+        }
+
+        const server = await McpServerModel.findById(
+          request.params.id,
+          user.id,
+          user.isAdmin,
+        );
+
+        if (!server) {
+          return reply.status(404).send({
+            error: {
+              message: "MCP server not found",
+              type: "not_found",
+            },
+          });
+        }
+
+        const summary = localMcpProcessManager.getSummary(server.id);
+        if (!summary || summary.status === "stopped") {
+          return reply.status(404).send({
+            error: {
+              message: "Runtime status not available for this server",
+              type: "not_found",
+            },
+          });
+        }
+
+        const pingPort = summary.statusPort ?? summary.port;
+        if (!pingPort) {
+          return reply.status(500).send({
+            error: {
+              message: "Runtime port information unavailable",
+              type: "api_error",
+            },
+          });
+        }
+
+        let hostname = "127.0.0.1";
+        let protocol = "http:";
+        if (server.serverUrl) {
+          try {
+            const parsed = new URL(server.serverUrl);
+            hostname = parsed.hostname || hostname;
+            protocol = parsed.protocol || protocol;
+          } catch {
+            // ignore parsing errors and fallback to defaults
+          }
+        }
+
+        const pingUrl = `${protocol}//${hostname}:${pingPort}/status`;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const startedAt = Date.now();
+
+        try {
+          const response = await fetch(pingUrl, {
+            signal: controller.signal,
+          });
+          const latencyMs = Date.now() - startedAt;
+          const text = await response.text();
+          let details: unknown = text;
+          try {
+            details = text ? JSON.parse(text) : null;
+          } catch {
+            // leave as raw text
+          }
+          const payload = {
+            ok: response.ok,
+            status: summary.status,
+            statusCode: response.status,
+            latencyMs,
+            details,
+          };
+          if (response.ok) {
+            return reply.send(payload);
+          }
+
+          return reply.status(502).send({
+            ...payload,
+            message: "Ping endpoint returned a non-success status",
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "Unknown error";
+          return reply.status(502).send({
+            ok: false,
+            status: summary.status,
+            message,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({

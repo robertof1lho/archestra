@@ -4,6 +4,7 @@ import type { archestraApiTypes } from "@archestra/shared";
 import type { ColumnDef, SortingState } from "@tanstack/react-table";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useState } from "react";
+import { PageContainer } from "@/components/page-container";
 import { TruncatedText } from "@/components/truncated-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,11 +44,11 @@ export default function McpGatewayLogsPage({
   };
 }) {
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-8">
+    <PageContainer>
       <ErrorBoundary>
         <McpToolCallsTable initialData={initialData} />
       </ErrorBoundary>
-    </div>
+    </PageContainer>
   );
 }
 

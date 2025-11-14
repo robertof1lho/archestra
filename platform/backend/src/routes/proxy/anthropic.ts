@@ -31,7 +31,7 @@ export const injectTools = async (
   const assignedAnthropicTools: z.infer<
     typeof Anthropic.Tools.CustomToolSchema
   >[] = assignedTools.map((tool) => ({
-    name: ToolModel.unslugifyName(tool.name),
+    name: ToolModel.unslugifyName(tool.name, tool.mcpServerName ?? undefined),
     description: tool.description || undefined,
     input_schema: tool.parameters || {},
     type: "custom" as const,

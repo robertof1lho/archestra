@@ -16,6 +16,7 @@ import { z } from "zod";
 import config from "@/config";
 import { McpServerRuntimeManager } from "@/mcp-server-runtime";
 import { authMiddleware } from "@/middleware/auth";
+import { api2mcpService } from "@/services/api2mcp-service";
 import {
   Anthropic,
   Gemini,
@@ -76,6 +77,15 @@ const start = async () => {
   try {
     // Seed database with demo data
     await seedDatabase();
+
+    try {
+      await api2mcpService.resumeGeneratedServers();
+    } catch (error) {
+      fastify.log.error(
+        { err: error },
+        "Failed to resume api2mcp servers during startup",
+      );
+    }
 
     // Initialize MCP Server Runtime (K8s-based)
     try {

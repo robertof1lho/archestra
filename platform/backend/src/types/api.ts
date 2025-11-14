@@ -139,6 +139,7 @@ export const RouteId = {
   RestartMcpServer: "restartMcpServer",
   GetMcpServerInstallationStatus: "getMcpServerInstallationStatus",
   GetLocalMcpRuntimeStatus: "getLocalMcpRuntimeStatus",
+  PingLocalMcpServer: "pingLocalMcpServer",
 
   // MCP Server Installation Request Routes
   GetMcpServerInstallationRequests: "getMcpServerInstallationRequests",

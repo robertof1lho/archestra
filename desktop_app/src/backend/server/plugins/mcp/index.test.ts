@@ -48,10 +48,10 @@ vi.mock('@socotra/modelcontextprotocol-sdk/server/mcp.js', () => ({
 describe('ArchestraMcpServer - Tool Enable/Disable Flow', () => {
   const chatId = 123;
 
-  // Mock tools - including one with a long server ID to test truncation and some Archestra tools
+  // Mock tools - including one with a long server ID and some Archestra tools
   const mockTools = [
     {
-      id: constructToolId('very-long-server-name-exceeds-10-chars', 'read_file'), // Will be truncated to 'very-long-__read_file'
+      id: constructToolId('very-long-server-name-exceeds-10-chars', 'read_file'),
       name: 'read_file',
       description: 'Read file',
       mcpServerName: 'filesystem',
@@ -122,12 +122,12 @@ describe('ArchestraMcpServer - Tool Enable/Disable Flow', () => {
 
     // All tools should be disabled
     expect(text).toContain('**filesystem** (0/3 tools enabled)');
-    expect(text).toContain('very-long-__read_file'); // Truncated ID, no (enabled) suffix
+    expect(text).toContain('very-long-server-name-exceeds-10-chars__read_file'); // No (enabled) suffix
     expect(text).toContain('filesystem__write_file'); // No (enabled) suffix
     expect(text).toContain('filesystem__delete_file'); // No (enabled) suffix
     expect(text).not.toContain('(enabled)'); // None should be enabled
 
-    // Step 2: Enable some tools (including the truncated one)
+    // Step 2: Enable some tools (including the long-named one)
     // Mock that some Archestra tools are currently enabled
     (ChatModel.getSelectedTools as Mock).mockResolvedValue([
       'archestra__list_memories',
@@ -143,20 +143,23 @@ describe('ArchestraMcpServer - Tool Enable/Disable Flow', () => {
     (ChatModel.addSelectedTools as Mock).mockResolvedValue([
       'archestra__list_memories',
       'archestra__list_available_tools',
-      'very-long-__read_file',
+      'very-long-server-name-exceeds-10-chars__read_file',
       'filesystem__write_file',
     ]);
 
     // Mock removeSelectedTools to simulate removing Archestra tools
-    (ChatModel.removeSelectedTools as Mock).mockResolvedValue(['very-long-__read_file', 'filesystem__write_file']);
+    (ChatModel.removeSelectedTools as Mock).mockResolvedValue([
+      'very-long-server-name-exceeds-10-chars__read_file',
+      'filesystem__write_file',
+    ]);
 
     const enableHandler = registeredHandlers[ARCHESTRA_MCP_TOOLS.ENABLE_TOOLS];
     result = await enableHandler({
-      toolIds: ['very-long-__read_file', 'filesystem__write_file'],
+      toolIds: ['very-long-server-name-exceeds-10-chars__read_file', 'filesystem__write_file'],
     });
 
     expect(ChatModel.addSelectedTools).toHaveBeenCalledWith(chatId, [
-      'very-long-__read_file',
+      'very-long-server-name-exceeds-10-chars__read_file',
       'filesystem__write_file',
     ]);
 
@@ -171,14 +174,17 @@ describe('ArchestraMcpServer - Tool Enable/Disable Flow', () => {
     );
 
     // Step 3: List tools again - should show updated status
-    (ChatModel.getSelectedTools as Mock).mockResolvedValue(['very-long-__read_file', 'filesystem__write_file']);
+    (ChatModel.getSelectedTools as Mock).mockResolvedValue([
+      'very-long-server-name-exceeds-10-chars__read_file',
+      'filesystem__write_file',
+    ]);
 
     result = await listHandler({ mcp_server: 'filesystem' });
     text = result.content[0].text;
 
     // Now 2 tools should be enabled
     expect(text).toContain('**filesystem** (2/3 tools enabled)');
-    expect(text).toContain('very-long-__read_file (enabled)'); // Enabled with truncated ID
+    expect(text).toContain('very-long-server-name-exceeds-10-chars__read_file (enabled)');
     expect(text).toContain('filesystem__write_file (enabled)'); // Enabled
     expect(text).toContain('filesystem__delete_file'); // Still disabled
     expect(text).not.toContain('filesystem__delete_file (enabled)'); // This one should NOT be enabled

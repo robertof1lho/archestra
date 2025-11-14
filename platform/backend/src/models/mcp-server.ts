@@ -5,6 +5,8 @@ import db, { schema } from "@/database";
 import logger from "@/logging";
 import { McpServerRuntimeManager } from "@/mcp-server-runtime";
 import type { InsertMcpServer, McpServer, UpdateMcpServer } from "@/types";
+import { api2mcpRegistry } from "@/services/api2mcp-registry";
+import { localMcpProcessManager } from "@/services/local-mcp-process-manager";
 import InternalMcpCatalogModel from "./internal-mcp-catalog";
 import McpServerTeamModel from "./mcp-server-team";
 import McpServerUserModel from "./mcp-server-user";
@@ -256,6 +258,24 @@ class McpServerModel {
     // If the MCP server was deleted and it had an associated secret, delete the secret
     if (deleted && mcpServer.secretId) {
       await SecretModel.delete(mcpServer.secretId);
+    }
+
+    try {
+      await localMcpProcessManager.stopProcess(id);
+    } catch (error) {
+      logger.warn(
+        { err: error, serverId: id },
+        "Failed to stop local MCP process during deletion",
+      );
+    }
+
+    try {
+      await api2mcpRegistry.deleteEntry(id);
+    } catch (error) {
+      logger.warn(
+        { err: error, serverId: id },
+        "Failed to delete api2mcp registry entry during MCP server deletion",
+      );
     }
 
     return deleted;

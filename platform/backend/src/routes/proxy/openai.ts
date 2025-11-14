@@ -33,7 +33,7 @@ export const injectTools = async (
     assignedTools.map((tool) => ({
       type: "function" as const,
       function: {
-        name: ToolModel.unslugifyName(tool.name),
+        name: ToolModel.unslugifyName(tool.name, tool.mcpServerName ?? undefined),
         description: tool.description || undefined,
         parameters: tool.parameters,
       },

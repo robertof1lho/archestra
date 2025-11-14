@@ -4,6 +4,7 @@ import type { archestraApiTypes } from "@archestra/shared";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { CodeText } from "@/components/code-text";
 import { LoadingSpinner } from "@/components/loading";
+import { PageContainer } from "@/components/page-container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,7 +205,7 @@ function DualLLMContent({
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight mb-2">
               Dual LLM Agent Configuration
@@ -216,10 +217,10 @@ function DualLLMContent({
               answers.{" "}
             </p>
           </div>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <PageContainer>
         <div className="space-y-6">
           <div className="bg-card rounded-lg p-8 shadow-sm">
             <h2 className="text-lg font-semibold mb-2">How it works</h2>
@@ -566,8 +567,7 @@ function DualLLMContent({
             />
           </div>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }
-

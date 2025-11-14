@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import mcpClient from "@/clients/mcp-client";
 import db, { schema } from "@/database";
 import { AgentToolModel, ToolModel } from "@/models";
@@ -47,7 +47,9 @@ export const persistTools = async (
 /**
  * Get tools assigned to an agent via the agent_tools junction table
  */
-export const getAssignedMCPTools = async (agentId: string): Promise<Tool[]> => {
+export const getAssignedMCPTools = async (
+  agentId: string,
+): Promise<Array<Tool & { mcpServerName: string | null }>> => {
   const toolIds = await AgentToolModel.findToolIdsByAgent(agentId);
 
   if (toolIds.length === 0) {
@@ -56,11 +58,35 @@ export const getAssignedMCPTools = async (agentId: string): Promise<Tool[]> => {
 
   // Fetch full tool details
   const tools = await db
-    .select()
+    .select({
+      id: schema.toolsTable.id,
+      agentId: schema.toolsTable.agentId,
+      mcpServerId: schema.toolsTable.mcpServerId,
+      name: schema.toolsTable.name,
+      parameters: schema.toolsTable.parameters,
+      description: schema.toolsTable.description,
+      createdAt: schema.toolsTable.createdAt,
+      updatedAt: schema.toolsTable.updatedAt,
+      mcpServerName: schema.mcpServersTable.name,
+    })
     .from(schema.toolsTable)
+    .leftJoin(
+      schema.mcpServersTable,
+      eq(schema.toolsTable.mcpServerId, schema.mcpServersTable.id),
+    )
     .where(inArray(schema.toolsTable.id, toolIds));
 
-  return tools;
+  return tools.map((tool) => ({
+    id: tool.id,
+    agentId: tool.agentId,
+    mcpServerId: tool.mcpServerId,
+    name: tool.name,
+    parameters: tool.parameters,
+    description: tool.description,
+    createdAt: tool.createdAt,
+    updatedAt: tool.updatedAt,
+    mcpServerName: tool.mcpServerName ?? null,
+  }));
 };
 
 export const executeMcpToolCalls = async (

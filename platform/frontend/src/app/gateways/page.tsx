@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { McpConnectionInstructions } from "@/components/mcp-connection-instructions";
 import { MermaidDiagram } from "@/components/mermaid-wrapper";
+import { PageContainer } from "@/components/page-container";
 import { ProxyConnectionInstructions } from "@/components/proxy-connection-instructions";
 import { useDefaultAgent } from "@/lib/agent.query";
 import { useHealth } from "@/lib/health.query";
@@ -77,7 +78,7 @@ export default function SettingsPage() {
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <h1 className="text-2xl font-semibold tracking-tight mb-2">
             LLM & MCP Gateways
           </h1>
@@ -96,10 +97,10 @@ export default function SettingsPage() {
             </Link>{" "}
             page.
           </p>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <PageContainer>
         <div className="bg-card rounded-lg p-8 shadow-sm">
           <div className="mb-8 max-w-3xl mx-auto">
             <MermaidDiagram chart={mermaidChart} id="gateway-diagram" />
@@ -133,7 +134,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

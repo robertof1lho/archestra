@@ -23,6 +23,13 @@ import type {
 // Get the API base URL from config
 const API_BASE_URL =
   process.env.ARCHESTRA_API_BASE_URL || `http://localhost:${config.api.port}`;
+const API2MCP_DESCRIPTION_PREFIX = "generated via api2mcp";
+
+function isApi2McpDescription(description?: string | null): boolean {
+  return Boolean(
+    description?.trim().toLowerCase().startsWith(API2MCP_DESCRIPTION_PREFIX),
+  );
+}
 
 class McpClient {
   private clients = new Map<string, Client>();
@@ -72,6 +79,35 @@ class McpClient {
     return results;
   }
 
+  private async resolveApi2McpCatalogIds(
+    catalogIds: Array<string | null>,
+  ): Promise<Set<string>> {
+    const uniqueIds = [
+      ...new Set(
+        catalogIds.filter((catalogId): catalogId is string =>
+          Boolean(catalogId),
+        ),
+      ),
+    ];
+    const api2mcpCatalogIds = new Set<string>();
+
+    if (uniqueIds.length === 0) {
+      return api2mcpCatalogIds;
+    }
+
+    const catalogs = await Promise.all(
+      uniqueIds.map((catalogId) => InternalMcpCatalogModel.findById(catalogId)),
+    );
+
+    catalogs.forEach((catalog, index) => {
+      if (catalog && isApi2McpDescription(catalog.description)) {
+        api2mcpCatalogIds.add(uniqueIds[index]);
+      }
+    });
+
+    return api2mcpCatalogIds;
+  }
+
   /**
    * Execute tool calls against their assigned MCP servers
    */
@@ -88,6 +124,9 @@ class McpClient {
       toolCalls.map((tc) => tc.name),
       agentId,
     );
+    const api2mcpCatalogIds = await this.resolveApi2McpCatalogIds(
+      mcpTools.map((tool) => tool.mcpServerCatalogId),
+    );
 
     // Filter tool calls to only those that are MCP tools
     const mcpToolCalls = toolCalls.filter((tc) =>
@@ -100,8 +139,9 @@ class McpClient {
       return [];
     }
 
-    // Create a mapping of tool names to response modifier templates
+    // Create helper maps for response templates and tool name resolution
     const templatesByToolName = new Map<string, string>();
+    const resolvedToolNameByCall = new Map<string, string>();
     for (const tool of mcpTools) {
       if (tool.responseModifierTemplate) {
         templatesByToolName.set(tool.toolName, tool.responseModifierTemplate);
@@ -110,6 +150,16 @@ class McpClient {
           tool.responseModifierTemplate,
         );
       }
+
+      const shouldStripPrefix =
+        Boolean(tool.mcpServerCatalogId) &&
+        api2mcpCatalogIds.has(tool.mcpServerCatalogId);
+      const preferredName = shouldStripPrefix
+        ? tool.nativeToolName
+        : tool.nativeToolName;
+
+      resolvedToolNameByCall.set(tool.toolName, preferredName);
+      resolvedToolNameByCall.set(tool.nativeToolName, preferredName);
     }
 
     const results: CommonToolResult[] = [];
@@ -201,11 +251,9 @@ class McpClient {
           // Execute each MCP tool call via the HTTP client
           for (const toolCall of mcpToolCalls) {
             try {
-              // Strip the server prefix from tool name for MCP server call
-              const slugPrefix = `${firstTool.toolName.split("__")[0]}__`;
-              const mcpToolName = toolCall.name.startsWith(slugPrefix)
-                ? toolCall.name.substring(slugPrefix.length)
-                : toolCall.name;
+              // Resolve native tool name for MCP server call
+              const mcpToolName =
+                resolvedToolNameByCall.get(toolCall.name) ?? toolCall.name;
 
               const result = await client.callTool({
                 name: mcpToolName,
@@ -308,11 +356,9 @@ class McpClient {
         // Execute each MCP tool call via direct JSON-RPC
         for (const toolCall of mcpToolCalls) {
           try {
-            // Strip the server prefix from tool name for MCP server call
-            const slugPrefix = `${firstTool.toolName.split("__")[0]}__`;
-            const mcpToolName = toolCall.name.startsWith(slugPrefix)
-              ? toolCall.name.substring(slugPrefix.length)
-              : toolCall.name;
+            // Resolve native tool name for MCP server call
+            const mcpToolName =
+              resolvedToolNameByCall.get(toolCall.name) ?? toolCall.name;
 
             const response = await fetch(proxyUrl, {
               method: "POST",
@@ -485,13 +531,9 @@ class McpClient {
       // Execute each MCP tool call
       for (const toolCall of mcpToolCalls) {
         try {
-          // Strip the server prefix from tool name for MCP server call
-          // Tool name format: <server-name>__<native-tool-name>
-          // Example: githubcopilot__remote-mcp__search_issues -> search_issues
-          const slugPrefix = `${firstTool.toolName.split("__")[0]}__`;
-          const mcpToolName = toolCall.name.startsWith(slugPrefix)
-            ? toolCall.name.substring(slugPrefix.length)
-            : toolCall.name;
+          // Resolve native tool name for MCP server call
+          const mcpToolName =
+            resolvedToolNameByCall.get(toolCall.name) ?? toolCall.name;
 
           const result = await client.callTool({
             name: mcpToolName,

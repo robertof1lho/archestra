@@ -21,12 +21,16 @@ import {
 import { Suspense, useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ErrorBoundary } from "@/app/_parts/error-boundary";
-import { type AgentLabel, AgentLabels } from "@/components/agent-labels";
 import { LoadingSpinner } from "@/components/loading";
+import { PageContainer } from "@/components/page-container";
 import { McpConnectionInstructions } from "@/components/mcp-connection-instructions";
-import { ProxyConnectionInstructions } from "@/components/proxy-connection-instructions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Card,
   CardContent,
@@ -71,8 +75,6 @@ import {
   useAgents,
   useCreateAgent,
   useDeleteAgent,
-  useLabelKeys,
-  useLabelValues,
   useUpdateAgent,
 } from "@/lib/agent.query";
 import { useAssignTool } from "@/lib/agent-tools.query";
@@ -113,20 +115,19 @@ function Agents({
   const [editingAgent, setEditingAgent] = useState<{
     id: string;
     name: string;
-    labels: AgentLabel[];
   } | null>(null);
   const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
 
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight mb-2">
                 MCP Gateways
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground text-justify">
                 MCP Gateways centralize access policies and auditing for every
                 MCP tool they use, giving each workload a dedicated blast-radius
                 on the gateway.
@@ -142,10 +143,10 @@ function Agents({
               </Button>
             </WithRole>
           </div>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <PageContainer>
         {!agents || agents.length === 0 ? (
           <Card>
             <CardHeader>
@@ -267,13 +268,12 @@ function Agents({
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() =>
-                                      setEditingAgent({
-                                        id: agent.id,
-                                        name: agent.name,
-                                        labels: agent.labels || [],
-                                      })
-                                    }
+                                  onClick={() =>
+                                    setEditingAgent({
+                                      id: agent.id,
+                                      name: agent.name,
+                                    })
+                                  }
                                   >
                                     <Pencil className="h-4 w-4" />
                                   </Button>
@@ -346,7 +346,7 @@ function Agents({
             onOpenChange={(open) => !open && setDeletingAgentId(null)}
           />
         )}
-      </div>
+      </PageContainer>
     </div>
   );
 }
@@ -470,12 +470,15 @@ function CreateAgentDialog({
     [],
   );
 
-  const toggleServerExpansion = useCallback((serverId: string) => {
-    setExpandedServers((prev) => ({
-      ...prev,
-      [serverId]: !prev[serverId],
-    }));
-  }, []);
+  const handleServerExpansionChange = useCallback(
+    (serverId: string, open: boolean) => {
+      setExpandedServers((prev) => ({
+        ...prev,
+        [serverId]: open,
+      }));
+    },
+    [],
+  );
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -636,105 +639,113 @@ function CreateAgentDialog({
                             const isExpanded =
                               !!expandedServers[group.serverId];
                             return (
-                              <div
+                              <Collapsible
                                 key={group.serverId}
-                                className="rounded-lg border p-3 space-y-3"
+                                open={isExpanded}
+                                onOpenChange={(open) =>
+                                  handleServerExpansionChange(
+                                    group.serverId,
+                                    open,
+                                  )
+                                }
                               >
-                                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                  <div className="flex items-start gap-3">
-                                    <Checkbox
-                                      id={`server-${group.serverId}`}
-                                      checked={serverCheckboxState}
-                                      onCheckedChange={(checked) =>
-                                        handleToggleServer(
-                                          group.tools,
-                                          checked === true,
-                                        )
-                                      }
-                                      disabled={isSubmitting}
-                                    />
-                                    <div>
-                                      <p className="font-semibold">
-                                        {group.serverName}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {group.tools.length} tool
-                                        {group.tools.length === 1 ? "" : "s"}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                    <span>
-                                      {selectedInServer === 0
-                                        ? "No tools selected"
-                                        : `${selectedInServer} of ${group.tools.length} tool${
-                                            group.tools.length === 1 ? "" : "s"
-                                          } selected`}
-                                    </span>
-                                    {group.tools.length > 0 && (
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() =>
-                                          toggleServerExpansion(group.serverId)
+                                <div className="rounded-lg border p-4 space-y-3">
+                                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                    <div className="flex items-start gap-3">
+                                      <Checkbox
+                                        id={`server-${group.serverId}`}
+                                        aria-label={`Add all tools from ${group.serverName}`}
+                                        checked={serverCheckboxState}
+                                        onCheckedChange={(checked) =>
+                                          handleToggleServer(
+                                            group.tools,
+                                            checked === true,
+                                          )
                                         }
-                                      >
-                                        {isExpanded ? (
-                                          <>
-                                            Hide tools
-                                            <ChevronUp className="ml-1 h-4 w-4" />
-                                          </>
-                                        ) : (
-                                          <>
-                                            Customize tools
-                                            <ChevronDown className="ml-1 h-4 w-4" />
-                                          </>
-                                        )}
-                                      </Button>
+                                        disabled={isSubmitting}
+                                      />
+                                      <div>
+                                        <p className="font-semibold">
+                                          {group.serverName}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {group.tools.length} tool
+                                          {group.tools.length === 1 ? "" : "s"}{" "}
+                                          available
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {serverCheckboxState === true
+                                            ? "All tools will be assigned."
+                                            : selectedInServer > 0
+                                              ? `${selectedInServer} selected from this server.`
+                                              : "Select entire server or choose specific tools."}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {group.tools.length > 0 && (
+                                      <div className="flex flex-col items-start gap-2 text-xs text-muted-foreground md:items-end">
+                                        <span>
+                                          {selectedInServer === 0
+                                            ? "No tools selected"
+                                            : `${selectedInServer} of ${group.tools.length} selected`}
+                                        </span>
+                                        <CollapsibleTrigger asChild>
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="text-xs"
+                                          >
+                                            {isExpanded
+                                              ? "Hide tool list"
+                                              : "Choose specific tools"}
+                                            {isExpanded ? (
+                                              <ChevronUp className="ml-1 h-4 w-4" />
+                                            ) : (
+                                              <ChevronDown className="ml-1 h-4 w-4" />
+                                            )}
+                                          </Button>
+                                        </CollapsibleTrigger>
+                                      </div>
                                     )}
                                   </div>
-                                </div>
-                                {isExpanded && (
-                                  <div className="space-y-3">
-                                    {group.tools.map((tool) => {
-                                      const isSelected =
-                                        !!selectedTools[tool.id];
-                                      return (
-                                        <div
-                                          key={tool.id}
-                                          className="rounded-md border p-3 space-y-2"
-                                        >
-                                          <div className="flex items-start gap-3">
-                                            <Checkbox
-                                              id={`tool-${tool.id}`}
-                                              checked={isSelected}
-                                              onCheckedChange={() =>
-                                                handleToggleTool(tool.id)
-                                              }
-                                              disabled={isSubmitting}
-                                            />
-                                            <div className="flex-1 space-y-1">
-                                              <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                                                <div>
-                                                  <p className="font-medium">
-                                                    {tool.name}
+                                  <CollapsibleContent>
+                                    <div className="space-y-3 border-t border-border/60 pt-3">
+                                      {group.tools.map((tool) => {
+                                        const isSelected =
+                                          !!selectedTools[tool.id];
+                                        return (
+                                          <div
+                                            key={tool.id}
+                                            className="rounded-md border border-border/70 bg-muted/30 p-3"
+                                          >
+                                            <div className="flex items-start gap-3">
+                                              <Checkbox
+                                                id={`tool-${tool.id}`}
+                                                checked={isSelected}
+                                                onCheckedChange={() =>
+                                                  handleToggleTool(tool.id)
+                                                }
+                                                disabled={isSubmitting}
+                                              />
+                                              <div className="flex-1 space-y-1">
+                                                <p className="font-medium">
+                                                  {tool.name}
+                                                </p>
+                                                {tool.description && (
+                                                  <p className="text-xs text-muted-foreground">
+                                                    {tool.description}
                                                   </p>
-                                                  {tool.description && (
-                                                    <p className="text-xs text-muted-foreground">
-                                                      {tool.description}
-                                                    </p>
-                                                  )}
-                                                </div>
+                                                )}
                                               </div>
                                             </div>
                                           </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </CollapsibleContent>
+                                </div>
+                              </Collapsible>
                             );
                           })
                         )}
@@ -792,15 +803,11 @@ function EditAgentDialog({
   agent: {
     id: string;
     name: string;
-    labels: AgentLabel[];
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [name, setName] = useState(agent.name);
-  const [labels, setLabels] = useState<AgentLabel[]>(agent.labels || []);
-  const { data: availableKeys = [] } = useLabelKeys();
-  const { data: availableValues = [] } = useLabelValues();
   const updateAgent = useUpdateAgent();
 
   const handleSubmit = useCallback(
@@ -816,7 +823,6 @@ function EditAgentDialog({
           id: agent.id,
           data: {
             name: name.trim(),
-            labels,
           },
         });
         toast.success("MCP gateway updated successfully");
@@ -825,7 +831,7 @@ function EditAgentDialog({
         toast.error("Failed to update MCP gateway");
       }
     },
-    [agent.id, name, labels, updateAgent, onOpenChange],
+    [agent.id, name, updateAgent, onOpenChange],
   );
 
   return (
@@ -855,12 +861,6 @@ function EditAgentDialog({
                 autoFocus
               />
             </div>
-            <AgentLabels
-              labels={labels}
-              onLabelsChange={setLabels}
-              availableKeys={availableKeys}
-              availableValues={availableValues}
-            />
           </div>
           <DialogFooter className="mt-4">
             <Button
@@ -882,25 +882,14 @@ function EditAgentDialog({
 
 function AgentConnectionTabs({ agentId }: { agentId: string }) {
   return (
-    <div className="grid grid-cols-2 gap-6">
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 pb-2 border-b">
-          <h3 className="font-medium">LLM Proxy</h3>
-          <h4 className="text-sm text-muted-foreground">
-            For security, observibility and enabling tools
-          </h4>
-        </div>
-        <ProxyConnectionInstructions agentId={agentId} />
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 pb-2 border-b">
+        <h3 className="font-medium">MCP Gateway</h3>
+        <h4 className="text-sm text-muted-foreground">
+          To enable tools for the MCP gateway
+        </h4>
       </div>
-      <div className="space-y-3">
-        <div className="flex items-center gap-2 pb-2 border-b">
-          <h3 className="font-medium">MCP Gateway</h3>
-          <h4 className="text-sm text-muted-foreground">
-            To enable tools for the MCP gateway
-          </h4>
-        </div>
-        <McpConnectionInstructions agentId={agentId} />
-      </div>
+      <McpConnectionInstructions agentId={agentId} />
     </div>
   );
 }

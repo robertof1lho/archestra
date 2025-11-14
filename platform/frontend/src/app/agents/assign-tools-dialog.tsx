@@ -1,11 +1,16 @@
 "use client";
 
 import type { archestraApiTypes } from "@archestra/shared";
-import { Loader2, Search, Server } from "lucide-react";
+import { Loader2, Search, Server, ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +43,42 @@ export function AssignToolsDialog({
   const { data: allTools, isLoading: isLoadingAllTools } = useTools({});
   const mcpTools = allTools?.filter((tool) => tool.mcpServer !== null) || [];
 
+  type ToolData =
+    archestraApiTypes.GetToolsResponses["200"] extends Array<infer T> ? T : never;
+  type McpServerGroup = {
+    serverId: string;
+    serverName: string;
+    tools: ToolData[];
+    allTools: ToolData[];
+  };
+
+  const serverGroups = useMemo<McpServerGroup[]>(() => {
+    if (!mcpTools.length) return [];
+    const groups = new Map<string, McpServerGroup>();
+
+    mcpTools.forEach((tool) => {
+      const serverId = tool.mcpServer?.id;
+      if (!serverId) return;
+      const serverName = tool.mcpServer?.name || "Unnamed server";
+      const existing = groups.get(serverId);
+      if (existing) {
+        existing.tools.push(tool);
+        existing.allTools.push(tool);
+      } else {
+        groups.set(serverId, {
+          serverId,
+          serverName,
+          tools: [tool],
+          allTools: [tool],
+        });
+      }
+    });
+
+    return Array.from(groups.values()).sort((a, b) =>
+      a.serverName.localeCompare(b.serverName),
+    );
+  }, [mcpTools]);
+
   // Fetch currently assigned tools for this agent (use getAllAgentTools to get credentialSourceMcpServerId)
   const { data: allAgentTools } = useAllAgentTools({});
   const agentToolRelations = useMemo(
@@ -47,17 +88,36 @@ export function AssignToolsDialog({
 
   // Track selected tool IDs
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
+  const [expandedServers, setExpandedServers] = useState<
+    Record<string, boolean>
+  >({});
+  const selectedToolCount = selectedToolIds.length;
 
   // Track search query
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Filter tools based on search query
-  const filteredTools = useMemo(() => {
-    if (!searchQuery.trim()) return mcpTools;
+  const filteredServerGroups = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return serverGroups;
+    }
 
-    const query = searchQuery.toLowerCase();
-    return mcpTools.filter((tool) => tool.name.toLowerCase().includes(query));
-  }, [mcpTools, searchQuery]);
+    return serverGroups
+      .map((group) => {
+        const serverMatches = group.serverName.toLowerCase().includes(query);
+        if (serverMatches) {
+          return group;
+        }
+        const matchingTools = group.tools.filter((tool) =>
+          tool.name.toLowerCase().includes(query),
+        );
+        if (matchingTools.length === 0) {
+          return null;
+        }
+        return { ...group, tools: matchingTools };
+      })
+      .filter((group): group is McpServerGroup => group !== null);
+  }, [serverGroups, searchQuery]);
 
   // Initialize selected tools when agent tools load
   useEffect(() => {
@@ -76,13 +136,36 @@ export function AssignToolsDialog({
     setSelectedToolIds((prev) => {
       const isSelected = prev.includes(toolId);
       if (isSelected) {
-        // Remove the tool
         return prev.filter((id) => id !== toolId);
       }
-      // Add the tool
       return [...prev, toolId];
     });
   }, []);
+
+  const handleToggleServer = useCallback(
+    (tools: ToolData[], shouldSelect: boolean) => {
+      setSelectedToolIds((prev) => {
+        const updated = new Set(prev);
+        if (shouldSelect) {
+          tools.forEach((tool) => updated.add(tool.id));
+        } else {
+          tools.forEach((tool) => updated.delete(tool.id));
+        }
+        return Array.from(updated);
+      });
+    },
+    [],
+  );
+
+  const handleServerExpansionChange = useCallback(
+    (serverId: string, open: boolean) => {
+      setExpandedServers((prev) => ({
+        ...prev,
+        [serverId]: open,
+      }));
+    },
+    [],
+  );
 
   const handleSave = useCallback(async () => {
     // Get current tool IDs and their state
@@ -143,19 +226,27 @@ export function AssignToolsDialog({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search tools by name..."
+            placeholder="Search tools or servers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 -mr-2">
+        <div className="text-sm text-muted-foreground">
+          {selectedToolCount === 0
+            ? "No tools selected"
+            : `${selectedToolCount} tool${
+                selectedToolCount === 1 ? "" : "s"
+              } selected`}
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-2 -mr-2 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : mcpTools.length === 0 ? (
+          ) : serverGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Server className="h-12 w-12 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">
@@ -165,7 +256,7 @@ export function AssignToolsDialog({
                 Install an MCP server to get started.
               </p>
             </div>
-          ) : filteredTools.length === 0 ? (
+          ) : filteredServerGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
               <h3 className="mb-2 text-lg font-semibold">No tools found</h3>
@@ -177,38 +268,124 @@ export function AssignToolsDialog({
               </Button>
             </div>
           ) : (
-            <div className="space-y-4">
-              {filteredTools.map((tool) => (
-                <div
-                  key={tool.id}
-                  className="flex items-start space-x-3 rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+            filteredServerGroups.map((group) => {
+              const totalTools = group.allTools.length;
+              const selectedInServer = group.allTools.filter((tool) =>
+                selectedToolIds.includes(tool.id),
+              ).length;
+              const serverCheckboxState =
+                selectedInServer === 0
+                  ? false
+                  : selectedInServer === totalTools
+                    ? true
+                    : "indeterminate";
+              const isExpanded = !!expandedServers[group.serverId];
+              return (
+                <Collapsible
+                  key={group.serverId}
+                  open={isExpanded}
+                  onOpenChange={(open) =>
+                    handleServerExpansionChange(group.serverId, open)
+                  }
                 >
-                  <Checkbox
-                    id={`tool-${tool.id}`}
-                    checked={selectedToolIds.includes(tool.id)}
-                    onCheckedChange={() => handleToggleTool(tool.id)}
-                    disabled={isSaving}
-                  />
-                  <div className="flex-1 space-y-1">
-                    <Label
-                      htmlFor={`tool-${tool.id}`}
-                      className="text-sm font-medium leading-none cursor-pointer mb-2"
-                    >
-                      {tool.name}
-                    </Label>
-                    {tool.description && (
-                      <p className="text-sm text-muted-foreground">
-                        {tool.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Server className="h-3 w-3" />
-                      <span>MCP Server Tool</span>
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id={`server-${group.serverId}`}
+                          aria-label={`Assign all tools from ${group.serverName}`}
+                          checked={serverCheckboxState}
+                          onCheckedChange={(checked) =>
+                            handleToggleServer(
+                              group.allTools,
+                              checked === true,
+                            )
+                          }
+                          disabled={isSaving}
+                        />
+                        <div>
+                          <p className="font-semibold">{group.serverName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {totalTools} tool{totalTools === 1 ? "" : "s"}{" "}
+                            available
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {serverCheckboxState === true
+                              ? "All tools from this server are selected."
+                              : selectedInServer > 0
+                                ? `${selectedInServer} of ${totalTools} selected.`
+                                : "Select the entire server or choose specific tools."}
+                          </p>
+                        </div>
+                      </div>
+                      {totalTools > 0 && (
+                        <div className="flex flex-col items-start gap-2 text-xs text-muted-foreground md:items-end">
+                          <span>
+                            {selectedInServer === 0
+                              ? "No tools selected"
+                              : `${selectedInServer} of ${totalTools} selected`}
+                          </span>
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs"
+                            >
+                              {isExpanded
+                                ? "Hide tool list"
+                                : "Choose specific tools"}
+                              {isExpanded ? (
+                                <ChevronUp className="ml-1 h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="ml-1 h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                        </div>
+                      )}
                     </div>
+                    <CollapsibleContent>
+                      <div className="space-y-3 border-t border-border/60 pt-3">
+                        {group.tools.map((tool) => {
+                          const isSelected = selectedToolIds.includes(tool.id);
+                          return (
+                            <div
+                              key={tool.id}
+                              className="rounded-md border border-border/70 bg-muted/30 p-3"
+                            >
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  id={`tool-${tool.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={() =>
+                                    handleToggleTool(tool.id)
+                                  }
+                                  disabled={isSaving}
+                                />
+                                <div className="flex-1 space-y-1">
+                                  <Label
+                                    htmlFor={`tool-${tool.id}`}
+                                    className="text-sm font-medium leading-none cursor-pointer"
+                                  >
+                                    {tool.name}
+                                  </Label>
+                                  {tool.description && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {tool.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleContent>
                   </div>
-                </div>
-              ))}
-            </div>
+                </Collapsible>
+              );
+            })
           )}
         </div>
 

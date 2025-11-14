@@ -2,6 +2,7 @@
 
 import { FilePlus } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   AlertDescription,
@@ -24,12 +25,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { useGenerateApi2McpServer } from "@/lib/internal-mcp-catalog.query";
 
 type InputMode = "paste" | "upload" | "url";
+const HTTP_METHOD_OPTIONS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
+type HttpMethod = (typeof HTTP_METHOD_OPTIONS)[number];
 
 export function Api2McpGenerator({
   onGenerationComplete,
 }: {
   onGenerationComplete?: () => void;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [inputMode, setInputMode] = useState<InputMode>("paste");
@@ -41,7 +45,7 @@ export function Api2McpGenerator({
   const [bearerToken, setBearerToken] = useState("");
   const [preferScheme, setPreferScheme] = useState<"https" | "http">("https");
   const [requestedPort, setRequestedPort] = useState("");
-  const [methods, setMethods] = useState("GET");
+  const [selectedMethods, setSelectedMethods] = useState<HttpMethod[]>(["GET"]);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -84,6 +88,10 @@ export function Api2McpGenerator({
         setError("Name is required");
         return;
       }
+      if (selectedMethods.length === 0) {
+        setError("Select at least one HTTP method");
+        return;
+      }
 
       let inputPayload:
         | { type: "text" | "file"; content: string; filename?: string }
@@ -119,11 +127,6 @@ export function Api2McpGenerator({
         return;
       }
 
-      const filteredMethods = methods
-        .split(",")
-        .map((m) => m.trim().toUpperCase())
-        .filter(Boolean);
-
       await generateMutation.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
@@ -132,10 +135,11 @@ export function Api2McpGenerator({
         baseUrl: baseUrl.trim() || undefined,
         bearerToken: bearerToken.trim() || undefined,
         preferScheme,
-        methods: filteredMethods.length > 0 ? filteredMethods : undefined,
+        methods: selectedMethods.length > 0 ? selectedMethods : undefined,
         requestedPort: requestedPort ? Number(requestedPort) : undefined,
       });
-      setShowDetails(true);
+      onGenerationComplete?.();
+      router.push("/mcp-catalog");
     },
     [
       baseUrl,
@@ -143,7 +147,7 @@ export function Api2McpGenerator({
       description,
       generateMutation,
       inputMode,
-      methods,
+      selectedMethods,
       name,
       onGenerationComplete,
       pastedText,
@@ -152,8 +156,17 @@ export function Api2McpGenerator({
       urlInput,
       fileContent,
       fileName,
+      router,
     ],
   );
+
+  const toggleMethod = useCallback((method: HttpMethod) => {
+    setSelectedMethods((prev) =>
+      prev.includes(method)
+        ? prev.filter((entry) => entry !== method)
+        : [...prev, method],
+    );
+  }, []);
 
   const runtimeBadgeVariant = useMemo(() => {
     if (!result) return "secondary";
@@ -231,17 +244,20 @@ export function Api2McpGenerator({
                   Upload JSON/TXT
                 </div>
               </Label>
-              <Label
-                htmlFor="input-url"
-                className={`border rounded-md p-3 cursor-pointer ${
-                  inputMode === "url" ? "border-primary" : "border-border"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem id="input-url" value="url" />
-                  Scrap documentation URL
-                </div>
-              </Label>
+              {/*
+                TODO(api2mcp): re-enable documentation scraping after we finish the discovery integration.
+                <Label
+                  htmlFor="input-url"
+                  className={`border rounded-md p-3 cursor-pointer ${
+                    inputMode === "url" ? "border-primary" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem id="input-url" value="url" />
+                    Scrap documentation URL
+                  </div>
+                </Label>
+              */}
             </RadioGroup>
           </div>
 
@@ -273,31 +289,34 @@ export function Api2McpGenerator({
                 />
                 <label
                   htmlFor="api2mcp-file"
-                  className="inline-flex items-center gap-2 rounded-full border border-dashed border-muted-foreground/40 px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted cursor-pointer transition-colors w-fit"
+                  className="inline-flex w-full max-w-sm items-center justify-center gap-2 rounded-full border border-dashed border-muted-foreground/40 px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted cursor-pointer transition-colors"
                 >
                   <FilePlus className="h-4 w-4" />
                   Choose file
                 </label>
               </div>
               {fileName && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground break-all">
                   Selected: {fileName}
                 </p>
               )}
             </div>
           )}
 
-          {inputMode === "url" && (
-            <div className="space-y-2">
-              <Label htmlFor="api2mcp-url">Documentation URL</Label>
-              <Input
-                id="api2mcp-url"
-                value={urlInput}
-                onChange={(event) => setUrlInput(event.target.value)}
-                placeholder="https://developer.example.com/api"
-              />
-            </div>
-          )}
+          {/*
+            TODO(api2mcp): restore the URL input when scraper flow returns.
+            {inputMode === "url" && (
+              <div className="space-y-2">
+                <Label htmlFor="api2mcp-url">Documentation URL</Label>
+                <Input
+                  id="api2mcp-url"
+                  value={urlInput}
+                  onChange={(event) => setUrlInput(event.target.value)}
+                  placeholder="https://developer.example.com/api"
+                />
+              </div>
+            )}
+          */}
 
           <Separator />
 
@@ -364,15 +383,26 @@ export function Api2McpGenerator({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="api2mcp-methods">
-              Allowed HTTP methods (comma-separated)
-            </Label>
-            <Input
-              id="api2mcp-methods"
-              value={methods}
-              onChange={(event) => setMethods(event.target.value)}
-              placeholder="GET,POST"
-            />
+            <Label>Allowed HTTP methods</Label>
+            <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-5">
+              {HTTP_METHOD_OPTIONS.map((method) => {
+                const isSelected = selectedMethods.includes(method);
+                return (
+                  <Button
+                    key={method}
+                    type="button"
+                    variant={isSelected ? "default" : "outline"}
+                    onClick={() => toggleMethod(method)}
+                    className="w-full justify-center text-xs"
+                  >
+                    {method}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Click to toggle the HTTP methods you want to expose.
+            </p>
           </div>
 
           {error && (
@@ -387,7 +417,7 @@ export function Api2McpGenerator({
               {isSubmitting ? "Generating..." : "Generate & run MCP server"}
             </Button>
             <p className="text-xs text-muted-foreground">
-              The generated MCP server runs locally inside Archestra and is
+              The generated MCP server runs locally inside the plataform and is
               automatically registered in your private registry.
             </p>
           </div>
@@ -436,6 +466,7 @@ export function Api2McpGenerator({
                   setFileName(null);
                   setBaseUrl("");
                   setBearerToken("");
+                  setSelectedMethods(["GET"]);
                 }}
               >
                 Create another

@@ -59,7 +59,7 @@ export function useAssignTool() {
       });
       return data?.success ?? false;
     },
-    onSuccess: (_, { agentId }) => {
+    onSuccess: async (_, { agentId }) => {
       // Invalidate queries to refetch data
       queryClient.invalidateQueries({ queryKey: ["agents", agentId, "tools"] });
       queryClient.invalidateQueries({ queryKey: ["tools"] });
@@ -67,6 +67,7 @@ export function useAssignTool() {
       queryClient.invalidateQueries({ queryKey: ["agent-tools"] });
       // Invalidate all MCP server tools queries to update assigned agent counts
       queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
+      await queryClient.refetchQueries({ queryKey: ["agents"] });
     },
   });
 }
@@ -87,13 +88,14 @@ export function useUnassignTool() {
       });
       return data?.success ?? false;
     },
-    onSuccess: (_, { agentId }) => {
+    onSuccess: async (_, { agentId }) => {
       queryClient.invalidateQueries({ queryKey: ["agents", agentId, "tools"] });
       queryClient.invalidateQueries({ queryKey: ["tools"] });
       queryClient.invalidateQueries({ queryKey: ["tools", "unassigned"] });
       queryClient.invalidateQueries({ queryKey: ["agent-tools"] });
       // Invalidate all MCP server tools queries to update assigned agent counts
       queryClient.invalidateQueries({ queryKey: ["mcp-servers"] });
+      await queryClient.refetchQueries({ queryKey: ["agents"] });
     },
   });
 }

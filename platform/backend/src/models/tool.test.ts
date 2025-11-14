@@ -435,6 +435,42 @@ describe("ToolModel", () => {
       expect(result[0].nativeToolName).toBe(sourceName);
     });
 
+    test("handles server names containing double underscores when deriving native names", async () => {
+      const _userId = await createTestUser();
+      const agent = await AgentModel.create({
+        name: "Test Agent",
+        teams: [],
+      });
+
+      const catalogItem = await InternalMcpCatalogModel.create({
+        name: "huggingface-remote",
+        serverType: "remote",
+        serverUrl: "https://example.com/mcp",
+      });
+      const mcpServer = await McpServerModel.create({
+        name: "huggingface__remote-mcp",
+        catalogId: catalogItem.id,
+      });
+
+      const slugName = "huggingface__remote-mcp__paper_search";
+      const mcpTool = await ToolModel.create({
+        name: slugName,
+        description: "Paper search",
+        parameters: {},
+        mcpServerId: mcpServer.id,
+      });
+
+      await AgentToolModel.create(agent.id, mcpTool.id);
+
+      const result = await ToolModel.getMcpToolsAssignedToAgent(
+        [slugName],
+        agent.id,
+      );
+
+      expect(result).toHaveLength(1);
+      expect(result[0].nativeToolName).toBe("paper_search");
+    });
+
     test("returns empty array when tools exist but not assigned to agent", async () => {
       const _user1Id = await createTestUser();
       const _user2Id = await createTestUser();

@@ -217,7 +217,9 @@ const agentToolRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
         const tools = await ToolModel.getToolsByAgent(agentId);
 
-        return reply.send(tools);
+        return reply.send(
+          tools.map(({ mcpServerName: _unused, ...tool }) => tool),
+        );
       } catch (error) {
         fastify.log.error(error);
         return reply.status(500).send({

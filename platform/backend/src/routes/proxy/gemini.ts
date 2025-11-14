@@ -24,7 +24,7 @@ const _injectTools = async (
   const assignedGeminiFunctions: z.infer<
     typeof Gemini.Tools.FunctionDeclarationSchema
   >[] = assignedTools.map((tool) => ({
-    name: ToolModel.unslugifyName(tool.name),
+    name: ToolModel.unslugifyName(tool.name, tool.mcpServerName ?? undefined),
     description: tool.description || "",
     parameters: tool.parameters,
   }));

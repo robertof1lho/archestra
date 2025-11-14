@@ -2,6 +2,7 @@
 
 import type { archestraApiTypes } from "@archestra/shared";
 import Divider from "@/components/divider";
+import { PageContainer } from "@/components/page-container";
 import { ExternalMCPCatalog } from "./_parts/ExternalMCPCatalog";
 import { InternalMCPCatalog } from "./_parts/InternalMCPCatalog";
 
@@ -16,7 +17,7 @@ export default function McpRegistryPage({
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <h1 className="text-2xl font-semibold tracking-tight mb-2">
             MCP Registry
           </h1>
@@ -24,17 +25,17 @@ export default function McpRegistryPage({
             Self-hosted MCP registry allows you to manage your own list of MCP
             servers and make them available to your agents.
           </p>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <PageContainer>
         <InternalMCPCatalog
           initialData={initialData.catalog}
           installedServers={initialData.servers}
         />
         <Divider className="my-8" />
         <ExternalMCPCatalog catalogItems={initialData.catalog} />
-      </div>
+      </PageContainer>
     </div>
   );
 }

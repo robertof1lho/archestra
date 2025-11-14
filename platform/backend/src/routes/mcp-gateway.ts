@@ -11,7 +11,7 @@ import { z } from "zod";
 import mcpClient from "@/clients/mcp-client";
 import config from "@/config";
 import logger from "@/logging";
-import { ToolModel } from "@/models";
+import { InternalMcpCatalogModel, McpServerModel, ToolModel } from "@/models";
 import { type CommonToolCall, UuidIdSchema } from "@/types";
 
 /**
@@ -33,6 +33,7 @@ const activeSessions = new Map<string, SessionData>();
  * Session timeout (30 minutes)
  */
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const API2MCP_DESCRIPTION_PREFIX = "generated via api2mcp";
 
 /**
  * Clean up expired sessions periodically
@@ -51,6 +52,51 @@ function cleanupExpiredSessions(): void {
     logger.info({ sessionId }, "Cleaning up expired session");
     activeSessions.delete(sessionId);
   }
+}
+
+function isApi2McpDescription(description?: string | null): boolean {
+  return Boolean(
+    description?.trim().toLowerCase().startsWith(API2MCP_DESCRIPTION_PREFIX),
+  );
+}
+
+async function resolveApi2McpServerIds(
+  tools: Array<{ mcpServerId: string | null }>,
+): Promise<Set<string>> {
+  const serverIds = [
+    ...new Set(
+      tools
+        .map((tool) => tool.mcpServerId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const api2mcpServerIds = new Set<string>();
+
+  if (serverIds.length === 0) {
+    return api2mcpServerIds;
+  }
+
+  const lookupResults = await Promise.all(
+    serverIds.map(async (serverId) => {
+      const server = await McpServerModel.findById(serverId);
+      if (!server?.catalogId) {
+        return null;
+      }
+      const catalog = await InternalMcpCatalogModel.findById(server.catalogId);
+      if (isApi2McpDescription(catalog?.description)) {
+        return serverId;
+      }
+      return null;
+    }),
+  );
+
+  for (const serverId of lookupResults) {
+    if (serverId) {
+      api2mcpServerIds.add(serverId);
+    }
+  }
+
+  return api2mcpServerIds;
 }
 
 /**
@@ -74,16 +120,31 @@ async function createAgentServer(
   );
 
   const tools = await ToolModel.getToolsByAgent(agentId);
+  const api2mcpServerIds = await resolveApi2McpServerIds(tools);
+  const normalizedTools = tools.map((tool) => {
+    const shouldUnslug =
+      tool.mcpServerId != null && api2mcpServerIds.has(tool.mcpServerId);
+    const displayName = shouldUnslug
+      ? ToolModel.unslugifyName(tool.name, tool.mcpServerName ?? undefined)
+      : tool.name;
+    return {
+      ...tool,
+      displayName,
+      slugifiedName: shouldUnslug ? tool.name : null,
+    };
+  });
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: tools.map(({ name, description, parameters }) => ({
-      name,
-      title: name,
-      description,
-      inputSchema: parameters,
-      annotations: {},
-      _meta: {},
-    })),
+    tools: normalizedTools.map(
+      ({ displayName, slugifiedName, description, parameters }) => ({
+        name: displayName,
+        title: displayName,
+        description,
+        inputSchema: parameters,
+        annotations: slugifiedName ? { slugifiedName } : {},
+        _meta: {},
+      }),
+    ),
   }));
 
   server.setRequestHandler(

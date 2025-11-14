@@ -3,6 +3,7 @@
 import { CheckCircle, Clock, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { PageContainer } from "@/components/page-container";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,7 +37,7 @@ export default function InstallationRequestsPage() {
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <h1 className="text-2xl font-semibold tracking-tight mb-2">
             MCP Server Installation Requests
           </h1>
@@ -45,10 +46,10 @@ export default function InstallationRequestsPage() {
               ? "Review and manage installation requests from your team members"
               : "View your installation requests and their status"}
           </p>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-8">
+      <PageContainer>
         <Tabs
           value={statusFilter}
           onValueChange={(v) =>
@@ -147,7 +148,7 @@ export default function InstallationRequestsPage() {
             )}
           </TabsContent>
         </Tabs>
-      </div>
+      </PageContainer>
     </div>
   );
 }

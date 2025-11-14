@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { LoadingSpinner } from "@/components/loading";
+import { PageContainer } from "@/components/page-container";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAllAgentTools } from "@/lib/agent-tools.query";
 import {
@@ -69,16 +70,16 @@ function ToolsList({ initialData }: { initialData?: AgentToolData[] }) {
   return (
     <div className="w-full h-full">
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-8 py-8">
+        <PageContainer>
           <h1 className="text-2xl font-semibold tracking-tight mb-2">Tools</h1>
           <p className="text-sm text-muted-foreground">
             Tools displayed here are either detected from requests between MCP
             gateways and LLMs or sourced from installed MCP servers.
           </p>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-6">
+      <PageContainer className="py-6">
         <Tabs
           value={activeTab}
           onValueChange={(value) => {
@@ -127,7 +128,7 @@ function ToolsList({ initialData }: { initialData?: AgentToolData[] }) {
           open={!!selectedToolForAssignment}
           onOpenChange={(open) => !open && setSelectedToolForAssignment(null)}
         />
-      </div>
+      </PageContainer>
     </div>
   );
 }

@@ -17,23 +17,43 @@ import AgentToolModel from "./agent-tool";
 const MCP_SERVER_TOOL_NAME_SEPARATOR = "__";
 
 class ToolModel {
+  private static normalizeNamePart(value: string): string {
+    return value.toLowerCase().replace(/ /g, "_");
+  }
+
   /**
    * Slugify a tool name to get a unique name for the MCP server's tool
    */
   static slugifyName(mcpServerName: string, toolName: string): string {
-    return `${mcpServerName}${MCP_SERVER_TOOL_NAME_SEPARATOR}${toolName}`
-      .toLowerCase()
-      .replace(/ /g, "_");
+    const normalizedServerName = ToolModel.normalizeNamePart(mcpServerName);
+    const normalizedToolName = ToolModel.normalizeNamePart(toolName);
+    return `${normalizedServerName}${MCP_SERVER_TOOL_NAME_SEPARATOR}${normalizedToolName}`;
   }
 
   /**
    * Unslugify a tool name to get the original tool name
    */
-  static unslugifyName(slugifiedName: string): string {
-    const parts = slugifiedName.split(MCP_SERVER_TOOL_NAME_SEPARATOR);
-    return parts.length > 1
-      ? parts.slice(1).join(MCP_SERVER_TOOL_NAME_SEPARATOR)
-      : slugifiedName;
+  static unslugifyName(slugifiedName: string, serverName?: string): string {
+    const normalizedSlug = slugifiedName.toLowerCase();
+
+    if (serverName) {
+      const normalizedServerName = ToolModel.normalizeNamePart(serverName);
+      const prefix = `${normalizedServerName}${MCP_SERVER_TOOL_NAME_SEPARATOR}`;
+      if (normalizedSlug.startsWith(prefix)) {
+        return normalizedSlug.slice(prefix.length);
+      }
+    }
+
+    const separatorIndex = normalizedSlug.indexOf(
+      MCP_SERVER_TOOL_NAME_SEPARATOR,
+    );
+    if (separatorIndex === -1) {
+      return normalizedSlug;
+    }
+
+    return normalizedSlug.slice(
+      separatorIndex + MCP_SERVER_TOOL_NAME_SEPARATOR.length,
+    );
   }
 
   static async create(tool: InsertTool): Promise<Tool> {
@@ -199,7 +219,9 @@ class ToolModel {
    * Proxy-sniffed tools are those with agentId set directly
    * MCP tools are those assigned via the agent_tools junction table
    */
-  static async getToolsByAgent(agentId: string): Promise<Tool[]> {
+  static async getToolsByAgent(
+    agentId: string,
+  ): Promise<Array<Tool & { mcpServerName: string | null }>> {
     // Get tool IDs assigned via junction table (MCP tools)
     const assignedToolIds = await AgentToolModel.findToolIdsByAgent(agentId);
 
@@ -213,12 +235,36 @@ class ToolModel {
     }
 
     const tools = await db
-      .select()
+      .select({
+        id: schema.toolsTable.id,
+        agentId: schema.toolsTable.agentId,
+        mcpServerId: schema.toolsTable.mcpServerId,
+        name: schema.toolsTable.name,
+        parameters: schema.toolsTable.parameters,
+        description: schema.toolsTable.description,
+        createdAt: schema.toolsTable.createdAt,
+        updatedAt: schema.toolsTable.updatedAt,
+        mcpServerName: schema.mcpServersTable.name,
+      })
       .from(schema.toolsTable)
+      .leftJoin(
+        schema.mcpServersTable,
+        eq(schema.toolsTable.mcpServerId, schema.mcpServersTable.id),
+      )
       .where(or(...conditions))
       .orderBy(desc(schema.toolsTable.createdAt));
 
-    return tools;
+    return tools.map((tool) => ({
+      id: tool.id,
+      agentId: tool.agentId,
+      mcpServerId: tool.mcpServerId,
+      name: tool.name,
+      parameters: tool.parameters,
+      description: tool.description,
+      createdAt: tool.createdAt,
+      updatedAt: tool.updatedAt,
+      mcpServerName: tool.mcpServerName ?? null,
+    }));
   }
 
   /**
@@ -285,11 +331,16 @@ class ToolModel {
     const mcpTools = await db
       .select({
         name: schema.toolsTable.name,
+        mcpServerName: schema.mcpServersTable.name,
       })
       .from(schema.toolsTable)
       .innerJoin(
         schema.agentToolsTable,
         eq(schema.agentToolsTable.toolId, schema.toolsTable.id),
+      )
+      .innerJoin(
+        schema.mcpServersTable,
+        eq(schema.toolsTable.mcpServerId, schema.mcpServersTable.id),
       )
       .where(
         and(
@@ -301,7 +352,9 @@ class ToolModel {
     const names = new Set<string>();
     for (const tool of mcpTools) {
       names.add(tool.name);
-      names.add(ToolModel.unslugifyName(tool.name));
+      names.add(
+        ToolModel.unslugifyName(tool.name, tool.mcpServerName ?? undefined),
+      );
     }
     return Array.from(names);
   }
@@ -359,14 +412,20 @@ class ToolModel {
     const requestedNames = new Set(toolNames);
     return mcpTools
       .filter((tool) => {
-        const nativeName = ToolModel.unslugifyName(tool.toolName);
+        const nativeName = ToolModel.unslugifyName(
+          tool.toolName,
+          tool.mcpServerName,
+        );
         return (
           requestedNames.has(tool.toolName) || requestedNames.has(nativeName)
         );
       })
       .map((tool) => ({
         ...tool,
-        nativeToolName: ToolModel.unslugifyName(tool.toolName),
+        nativeToolName: ToolModel.unslugifyName(
+          tool.toolName,
+          tool.mcpServerName,
+        ),
       }));
   }
 

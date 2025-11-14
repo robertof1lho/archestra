@@ -172,14 +172,6 @@ export function ToolResultPolicies({
             Tool results impact agent decisions and actions. This policy allows
             to mark tool results as &ldquo;trusted&rdquo; or
             &ldquo;untrusted&rdquo; to prevent agent acting on untrusted data.{" "}
-            <a
-              href="https://www.archestra.ai/docs/platform-dynamic-tools"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-foreground"
-            >
-              Read more about Dynamic Tools.
-            </a>
           </p>
           <p className="text-sm text-muted-foreground mt-2"></p>
         </div>

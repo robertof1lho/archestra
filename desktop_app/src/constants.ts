@@ -39,7 +39,7 @@ export const ARCHESTRA_MCP_SERVER_ID = 'archestra';
 export const TOOL_ID_SERVER_TOOL_NAME_SEPARATOR = '__';
 
 export const constructToolId = (serverId: string, toolName: string) =>
-  `${serverId.substring(0, 10)}${TOOL_ID_SERVER_TOOL_NAME_SEPARATOR}${toolName}`;
+  `${serverId}${TOOL_ID_SERVER_TOOL_NAME_SEPARATOR}${toolName}`;
 
 /**
  * Some MCP servers contain multiple double underscores, like this:

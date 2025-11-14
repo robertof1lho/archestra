@@ -175,4 +175,11 @@ export default {
   benchmark: {
     mockMode: process.env.BENCHMARK_MOCK_MODE === "true",
   },
+  seeding: {
+    /**
+     * Seed demo agents/tools/interactions only when explicitly enabled.
+     * Defaults to false so local environments start with a clean database.
+     */
+    seedDemoData: process.env.ARCHESTRA_SEED_DEMO_DATA === "true",
+  },
 };

@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { ErrorBoundary } from "@/app/_parts/error-boundary";
 import ChatBotDemo from "@/components/chatbot-demo";
 import { LoadingSpinner } from "@/components/loading";
+import { PageContainer } from "@/components/page-container";
 import {
   Accordion,
   AccordionContent,
@@ -83,7 +84,7 @@ function LogDetail({
   return (
     <>
       <div className="border-b border-border bg-card/30">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+        <PageContainer className="py-8">
           <div className="flex items-center gap-4 mb-2">
             <Button variant="ghost" size="icon" asChild>
               <Link href="/logs">
@@ -97,10 +98,10 @@ function LogDetail({
           <p className="text-sm text-muted-foreground ml-14">
             {formatDate({ date: interaction.createdAt })}
           </p>
-        </div>
+        </PageContainer>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-8">
+      <PageContainer className="space-y-8">
         <div>
           <h2 className="text-xl font-semibold mb-4">Metadata</h2>
           <div className="border border-border rounded-lg p-6 bg-card">
@@ -216,7 +217,7 @@ function LogDetail({
             </AccordionItem>
           </Accordion>
         </div>
-      </div>
+      </PageContainer>
     </>
   );
 }

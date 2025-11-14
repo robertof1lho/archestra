@@ -1,9 +1,14 @@
+import { access } from "node:fs/promises";
 import logger from "@/logging";
 import InternalMcpCatalogModel from "@/models/internal-mcp-catalog";
 import McpServerModel from "@/models/mcp-server";
 import ToolModel from "@/models/tool";
 import type { InternalMcpCatalog, McpServer } from "@/types";
 import { api2mcpRunner } from "./api2mcp-runner";
+import {
+  api2mcpRegistry,
+  type Api2McpRegistryEntry,
+} from "./api2mcp-registry";
 import { localMcpProcessManager } from "./local-mcp-process-manager";
 import { findAvailablePort } from "./port-utils";
 
@@ -67,11 +72,17 @@ export class Api2McpService {
     const statusPort = await findAvailablePort(port + 1);
     const serverUrl = `http://127.0.0.1:${port}/mcp`;
 
+    const generationTimestamp = new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(new Date());
+
     const catalogItem = await InternalMcpCatalogModel.create({
       name: payload.name,
       description:
         payload.description ||
-        `Generated via api2mcp on ${new Date().toISOString()}`,
+        `Generated via api2mcp on ${generationTimestamp} UTC`,
       serverType: "remote",
       serverUrl,
       docsUrl: payload.input.type === "url" ? payload.input.url : undefined,
@@ -131,6 +142,16 @@ export class Api2McpService {
             "Failed to start generated MCP server process",
         );
       }
+
+      await api2mcpRegistry.upsertEntry({
+        serverId: serverRecord.id,
+        scriptPath: generation.scriptPath,
+        env: runtimeEnv,
+        port,
+        statusPort,
+        finalState: generation.finalState,
+        scriptId: generation.scriptId,
+      });
 
       await this.fetchAndPersistToolsWithRetry(serverRecord.id);
 
@@ -220,6 +241,15 @@ export class Api2McpService {
     }
 
     try {
+      await api2mcpRegistry.deleteEntry(serverId);
+    } catch (registryError) {
+      logger.warn(
+        { err: registryError, serverId },
+        "Failed to delete api2mcp registry entry during cleanup",
+      );
+    }
+
+    try {
       await InternalMcpCatalogModel.delete(catalogId);
     } catch (catalogError) {
       logger.error(
@@ -228,10 +258,122 @@ export class Api2McpService {
       );
     }
   }
+
+  async resumeGeneratedServers(): Promise<void> {
+    const entries = await api2mcpRegistry.listEntries();
+    if (entries.length === 0) {
+      logger.info("No api2mcp-generated MCP servers to resume");
+      return;
+    }
+
+    logger.info(
+      { count: entries.length },
+      "Attempting to resume api2mcp-generated MCP servers",
+    );
+
+    for (const entry of entries) {
+      try {
+        await this.resumeSingleServer(entry);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        logger.error(
+          { err: error, serverId: entry.serverId },
+          "Failed to resume api2mcp MCP server",
+        );
+        await McpServerModel.update(entry.serverId, {
+          localInstallationStatus: "error",
+          localInstallationError: message,
+        }).catch(() => {});
+      }
+    }
+  }
+
+  private async resumeSingleServer(
+    entry: Api2McpRegistryEntry,
+  ): Promise<void> {
+    const server = await McpServerModel.findById(entry.serverId);
+    if (!server) {
+      logger.info(
+        { serverId: entry.serverId },
+        "Removing api2mcp registry entry for deleted MCP server",
+      );
+      await api2mcpRegistry.deleteEntry(entry.serverId);
+      return;
+    }
+
+    if (!server.catalogId) {
+      logger.warn(
+        { serverId: entry.serverId },
+        "Cannot resume api2mcp server without catalog reference",
+      );
+      return;
+    }
+
+    const catalog = await InternalMcpCatalogModel.findById(server.catalogId);
+    if (!catalog) {
+      logger.warn(
+        { serverId: entry.serverId, catalogId: server.catalogId },
+        "Catalog entry missing for api2mcp server; skipping resume",
+      );
+      return;
+    }
+
+    if (!(await fileExists(entry.scriptPath))) {
+      const errorMessage =
+        "Generated api2mcp server script missing; please regenerate";
+      await api2mcpRegistry.deleteEntry(entry.serverId);
+      await McpServerModel.update(server.id, {
+        localInstallationStatus: "error",
+        localInstallationError: errorMessage,
+      });
+      throw new Error(errorMessage);
+    }
+
+    const port = await findAvailablePort(entry.port);
+    const desiredStatusPort =
+      entry.statusPort && entry.statusPort !== entry.port
+        ? entry.statusPort
+        : port + 1;
+    const statusPort = await findAvailablePort(desiredStatusPort);
+
+    const serverUrl = `http://127.0.0.1:${port}/mcp`;
+    await InternalMcpCatalogModel.update(server.catalogId, {
+      serverUrl,
+    });
+
+    localMcpProcessManager.startProcess({
+      serverId: server.id,
+      scriptPath: entry.scriptPath,
+      port,
+      statusPort,
+      env: entry.env,
+    });
+
+    await api2mcpRegistry.upsertEntry({
+      ...entry,
+      port,
+      statusPort,
+    });
+
+    await McpServerModel.update(server.id, {
+      localInstallationStatus: "success",
+      localInstallationError: null,
+    });
+  }
 }
 
 export const api2mcpService = new Api2McpService();
 
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fileExists(target: string): Promise<boolean> {
+  try {
+    await access(target);
+    return true;
+  } catch {
+    return false;
+  }
 }

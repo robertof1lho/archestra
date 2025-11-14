@@ -199,3 +199,42 @@ button, div[role="menuitem"] {
 button:disabled {
   cursor: not-allowed;
 }
+
+@layer utilities {
+  @keyframes gentle-blink {
+    0%, 100% {
+      opacity: 0.78;
+      transform: scale(0.94);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes gentle-glow {
+    0%, 100% {
+      opacity: 0.35;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 0.75;
+      transform: scale(1.1);
+    }
+  }
+
+  .animate-gentle-blink {
+    animation: gentle-blink 2.4s ease-in-out infinite;
+  }
+
+  .animate-gentle-glow {
+    animation: gentle-glow 3s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-gentle-blink,
+    .animate-gentle-glow {
+      animation: none;
+    }
+  }
+}
